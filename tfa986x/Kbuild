@@ -94,10 +94,6 @@ ifdef CONFIG_TFA_STEREO_NODE
 CDEFINES +=     -DTFA_STEREO_NODE
 endif
 
-ifdef CONFIG_PLATFORM_EXYNOS
-CDEFINES +=     -DTFA_PLATFORM_EXYNOS
-endif
-
 KBUILD_CPPFLAGS += $(CDEFINES)
 
 # Currently, for versions of gcc which support it, the kernel Makefile

@@ -20,6 +20,11 @@
 	pr_err("PrintAssert:%s (%s:%d) error code:%d\n",\
 	__func__, __FILE__, __LINE__, e); }
 
-#define TFA_DEBUG_CODE_FOR_AUTO_TEST
+#if !defined(TFA_STEREO_NODE)
+#define TFA_STEREO_NODE
+#endif
+#define TFA_PLATFORM_QUALCOMM
+
+//#define TFA_DEBUG_CODE_FOR_AUTO_TEST
 #endif /* __CONFIG_LINUX_KERNEL_INC__ */
 

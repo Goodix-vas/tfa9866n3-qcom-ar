@@ -14,9 +14,6 @@ TFA_STEREO_NODE          =1
 endif
 
 TFA98XX_FLAGS            := -DUSE_TFA9866 -DUSE_TFA9865 -DUSE_TFA986X
-ifeq ($(CONFIG_PLATFORM_EXYNOS),y)
-TFA98XX_FLAGS            += -DSPLATFORM
-endif
 
 # cc flags
 #ccflags-y              := -DDEBUG

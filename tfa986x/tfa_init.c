@@ -465,6 +465,26 @@ static enum tfa98xx_error tfa986x_specific(struct tfa_device *tfa)
 		/* ----- generated code end   ----- */
 		break;
 
+	case 0x201a66:/**TFA9866 N3A1**/		
+		bf_value = tfa_get_bf(tfa, TFA9866_BF_SPARE_F0_15_10);
+		if (bf_value >= 0)
+			tfa_set_bf(tfa, TFA9866_BF_CS_KTEMP, (uint16_t)bf_value);
+
+		/* ----- generated code start(V8)----- */
+		/* -----  version 6 ----- */
+		reg_write(tfa, 0x00, 0xf201); //POR=0xf241
+		reg_write(tfa, 0x08, 0x009a); //POR=0x00d2
+		reg_write(tfa, 0x50, 0xc000); //POR=0x8000
+		reg_write(tfa, 0x54, 0x40e0); //POR=0x00e0
+		reg_write(tfa, 0x62, 0x0666); //POR=0x06c6
+		reg_write(tfa, 0x63, 0x806d); //POR=0x80d4
+		reg_write(tfa, 0x65, 0x0c58); //POR=0x0458
+		reg_write(tfa, 0x67, 0x016d); //POR=0x0628
+		reg_write(tfa, 0x74, 0x5e28); //POR=0x6014
+		reg_write(tfa, 0x75, 0x1daa); //POR=0x39e0
+		/* ----- generated code end   ----- */
+		break;
+
 	default:
 		pr_info("\nWarning: Optimal settings not found for device with revid = 0x%x\n",
 			tfa->revid);
