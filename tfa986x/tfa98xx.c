@@ -3632,6 +3632,12 @@ static int tfa98xx_load_container(struct tfa98xx *tfa98xx)
 	} while (tries < TFA98XX_LOADFW_NTRIES
 		&& tfa98xx->dsp_fw_state != TFA98XX_DSP_FW_OK);
 
+	if (ret == 0 && tfa98xx->dsp_fw_state == TFA98XX_DSP_FW_OK) {
+		tfa98xx->probe_state |= TFA98XX_PROBE_STATE_CNT_LOAD_SUCCESS;
+	} else {
+		pr_err("%s: CNT load failed %d\n", __func__, ret);
+	}
+
 	return ret;
 }
 
@@ -3717,6 +3723,10 @@ static void tfa98xx_monitor(struct work_struct *work)
 		}
 	}
 #endif // TFA_DEBUG_CODE_FOR_AUTO_TEST
+
+	/* TFA AMP On is done */
+	// notify_amp_on_done(tfa98xx->tfa->dev_idx); // top:0, bottom:1
+
 	mutex_unlock(&tfa98xx->dsp_lock);
 
 	if (error == TFA98XX_ERROR_DSP_NOT_RUNNING) {
@@ -6128,6 +6138,12 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	tfa98xx->tfa->cachep = tfa98xx_cache;
 	mutex_unlock(&tfa98xx_mutex);
 
+	if (ret == 0) {
+		tfa98xx->probe_state |= TFA98XX_PROBE_STATE_I2C_INIT_SUCCESS;
+	} else {
+		dev_err(&i2c->dev, "[0x%x] I2C,GPIO init failed %d\n", i2c->addr, ret);
+	}
+
 #if defined(TFA_PLATFORM_QUALCOMM)
 	tfa98xx->tfa->dummy_cal= DUMMY_CALIBRATION_DATA;
 #endif
@@ -6190,6 +6206,12 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	if (ret < 0) {
 		dev_err(&i2c->dev, "Failed to register TFA98xx: %d\n", ret);
 		goto tfa98xx_i2c_probe_exit;
+	}
+
+	if (ret == 0) {
+		tfa98xx->probe_state |= TFA98XX_PROBE_STATE_DAI_INIT_SUCCESS;
+	} else {
+		dev_err(&i2c->dev, "[0x%x] DAI init failed %d\n", i2c->addr, ret);
 	}
 
 	if (gpio_is_valid(tfa98xx->irq_gpio) &&
@@ -6332,6 +6354,37 @@ tfa98xx_i2c_probe_exit:
 tfa98xx_i2c_probe_fail:
 	return ret;
 }
+
+/*
+ * Top: dev_idx=0, Bottom: dev_idx=1
+ * Return value:
+ *** 0x1 : I2C init. success
+ *** 0x2 : DAI init. success
+ *** 0x4 : Container loading success
+ *** 0x7 : All success
+ *** -1 : Init. fail
+ */
+int tfa98xx_get_init_state(int dev_idx)
+{
+	int ret = -1;
+	struct tfa98xx *tfa98xx;
+
+	pr_info("%s: device index %d\n", __func__, dev_idx);
+	list_for_each_entry(tfa98xx, &tfa98xx_device_list, list) {
+		if (dev_idx == tfa98xx->tfa->dev_idx)
+			break;
+	}
+
+	pr_info("%s: probe_state %d\n", __func__, tfa98xx->probe_state);
+	if (tfa98xx) {
+		ret = tfa98xx->probe_state;
+		if (tfa98xx->probe_state == 0x0)
+			ret = -1;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(tfa98xx_get_init_state);
 
 #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
 static void tfa98xx_i2c_remove(struct i2c_client *i2c)

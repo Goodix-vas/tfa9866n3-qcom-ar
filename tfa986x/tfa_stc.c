@@ -29,6 +29,12 @@ static ssize_t sknt_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size);
 static DEVICE_ATTR_RW(sknt);
 
+static ssize_t power_state_show(struct device *dev,
+	struct device_attribute *attr, char *buf);
+static ssize_t power_state_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size);
+static DEVICE_ATTR_RW(power_state);
+
 #if defined(TFA_STEREO_NODE)
 static ssize_t spkt_r_show(struct device *dev,
 	struct device_attribute *attr, char *buf);
@@ -41,14 +47,22 @@ static ssize_t sknt_r_show(struct device *dev,
 static ssize_t sknt_r_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size);
 static DEVICE_ATTR_RW(sknt_r);
+static ssize_t power_state_r_show(struct device *dev,
+	struct device_attribute *attr, char *buf);
+static ssize_t power_state_r_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size);
+static DEVICE_ATTR_RW(power_state_r);
+
 #endif /* TFA_STEREO_NODE */
 
 static struct attribute *tfa_stc_attr[] = {
 	&dev_attr_spkt.attr,
 	&dev_attr_sknt.attr,
+	&dev_attr_power_state.attr,
 #if defined(TFA_STEREO_NODE)
 	&dev_attr_spkt_r.attr,
 	&dev_attr_sknt_r.attr,
+	&dev_attr_power_state_r.attr,
 #endif /* TFA_STEREO_NODE */
 	NULL,
 };
@@ -175,6 +189,43 @@ static ssize_t sknt_store(struct device *dev,
 	return size;
 }
 
+static ssize_t power_state_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int idx = tfa_get_dev_idx_from_inchannel(0);
+	int value, size;
+	char pstate_result[FILESIZE_STC] = {0};
+
+	value = tfa_get_power_state(idx);
+	pr_info("%s: tfa_stc - dev %d - power state (%d)\n",
+		__func__, idx, value);
+
+	snprintf(pstate_result, FILESIZE_STC,
+		"%d", value);
+
+	if (pstate_result[0] == 0)
+		size = snprintf(buf, 1 + 1, "0"); /* no data */
+	else
+		size = snprintf(buf, strlen(pstate_result) + 1,
+			"%s", pstate_result);
+
+	if (size <= 0) {
+		pr_err("%s: tfa_stc failed to show in sysfs file\n", __func__);
+		return -EINVAL;
+	}
+
+	return size;
+}
+
+static ssize_t power_state_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	pr_info("%s: dev %d - not allowed to write power state\n",
+		__func__, tfa_get_dev_idx_from_inchannel(0));
+
+	return size;
+}
+
 #if defined(TFA_STEREO_NODE)
 static ssize_t spkt_r_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -252,6 +303,43 @@ static ssize_t sknt_r_store(struct device *dev,
 		pr_err("%s: tfa_stc dev %d - error %d\n",
 			__func__, idx, ret);
 	}
+
+	return size;
+}
+
+static ssize_t power_state_r_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int idx = tfa_get_dev_idx_from_inchannel(1);
+	int value, size;
+	char pstate_result[FILESIZE_STC] = {0};
+
+	value = tfa_get_power_state(idx);
+	pr_info("%s: tfa_stc - dev %d - power state (%d)\n",
+		__func__, idx, value);
+
+	snprintf(pstate_result, FILESIZE_STC,
+		"%d", value);
+
+	if (pstate_result[0] == 0)
+		size = snprintf(buf, 1 + 1, "0"); /* no data */
+	else
+		size = snprintf(buf, strlen(pstate_result) + 1,
+			"%s", pstate_result);
+
+	if (size <= 0) {
+		pr_err("%s: tfa_stc failed to show in sysfs file\n", __func__);
+		return -EINVAL;
+	}
+
+	return size;
+}
+
+static ssize_t power_state_r_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	pr_info("%s: dev %d - not allowed to write power state\n",
+		__func__, tfa_get_dev_idx_from_inchannel(1));
 
 	return size;
 }

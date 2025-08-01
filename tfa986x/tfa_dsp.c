@@ -3526,7 +3526,7 @@ enum tfa_error tfa_dev_stop(struct tfa_device *tfa)
 	enum tfa98xx_error err = TFA98XX_ERROR_OK;
 	int ramp_steps;
 
-	pr_debug("Stopping device [%s]\n",
+	pr_info("Stopping device [%s]\n",
 		tfa_cont_device_name(tfa->cnt, tfa->dev_idx));
 
 	/* mute */
@@ -3543,7 +3543,9 @@ enum tfa_error tfa_dev_stop(struct tfa_device *tfa)
 	/* powerdown CF */
 	err = tfa98xx_powerdown(tfa, 1);
 	if (err != TFA98XX_ERROR_OK)
-		return tfa_error_other;
+		goto tfa_dev_stop_exit;
+
+	msleep_interruptible(BUSLOAD_INTERVAL);
 
 	/* CHECK: only once after buffering fully */
 	/* at last device only: to flush buffer */
@@ -3575,9 +3577,17 @@ enum tfa_error tfa_dev_stop(struct tfa_device *tfa)
 		tfa_reset_active_handle(tfa);
 	}
 
-	if (err != TFA98XX_ERROR_OK)
+tfa_dev_stop_exit:
+	if (err != TFA98XX_ERROR_OK) {
 		ret = tfa_convert_error_code(err);
+		pr_err("%s: error (%d) in device stop\n",
+				__func__, ret);
+	}
 
+	/* TFA AMP Off is done */
+	// notify_amp_off_done(tfa->dev_idx); // top:0, bottom:1
+
+	pr_info("%s: Done\n", __func__);
 	return ret;
 }
 
@@ -4179,6 +4189,9 @@ int tfa_dev_probe(int resp_addr, struct tfa_device *tfa)
 			__func__, tfa->dev_idx, tfa->dev_tfadsp);
 		tfa->dev_count--;
 	}
+
+	pr_info("%s: dev %d - resp_addr 0x%x\n",
+		__func__, tfa->dev_idx, tfa->resp_address);
 
 	revid = (unsigned int)rev;
 	if (((rev & 0xff) == 0x66)

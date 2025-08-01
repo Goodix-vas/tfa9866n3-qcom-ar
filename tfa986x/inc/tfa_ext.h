@@ -85,5 +85,6 @@ int tfa98xx_update_spkt_data(int idx);
 int tfa98xx_update_spkt_data_channel(int channel);
 int tfa98xx_write_sknt_control(int idx, int value);
 int tfa98xx_write_sknt_control_channel(int channel, int value);
+int tfa98xx_get_init_state(int dev_idx);
 
 #endif /* TFA_SRC_TFA_EXT_H_ */

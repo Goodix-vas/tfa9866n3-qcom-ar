@@ -39,6 +39,10 @@
 
 #define TFA98XX_NUM_RATES		5
 
+#define TFA98XX_PROBE_STATE_I2C_INIT_SUCCESS	(1 << 0)
+#define TFA98XX_PROBE_STATE_DAI_INIT_SUCCESS	(1 << 1)
+#define TFA98XX_PROBE_STATE_CNT_LOAD_SUCCESS	(1 << 2)
+
 /* DSP init status */
 enum tfa98xx_dsp_init_state {
 	TFA98XX_DSP_INIT_STOPPED,	/* DSP not running */
@@ -126,6 +130,7 @@ struct tfa98xx {
 	int calibrate_done;
 	uint16_t overlay_bf;
 	uint16_t overlay_val;
+	int probe_state;
 };
 
 #endif /* __TFA98XX_INC__ */
