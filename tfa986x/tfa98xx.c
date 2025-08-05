@@ -3190,7 +3190,6 @@ enum tfa98xx_error tfa98xx_write_register16(struct tfa_device *tfa,
 	int ret;
 	int retries = I2C_RETRIES;
 	struct tfa_device *tfa0 = NULL;
-	int group;
 
 	/* set head device */
 	tfa0 = tfa98xx_get_tfa_device_from_index(-1);
@@ -3220,11 +3219,6 @@ retry:
 			goto retry;
 		}
 
-		if (tfa0 != NULL && tfa0->blackbox_enable) {
-			group = tfa->dev_idx * ID_BLACKBOX_MAX;
-			tfa0->log_data[group + ID_I2CERR_COUNT]++;
-		}
-
 		return TFA98XX_ERROR_FAIL;
 	}
 
@@ -3247,7 +3241,6 @@ enum tfa98xx_error tfa98xx_read_register16(struct tfa_device *tfa,
 	int retries = I2C_RETRIES;
 	int ret;
 	struct tfa_device *tfa0 = NULL;
-	int group;
 
 	/* set head device */
 	tfa0 = tfa98xx_get_tfa_device_from_index(-1);
@@ -3276,11 +3269,6 @@ retry:
 					ret, 0, I2C_RETRIES - retries);
 			msleep(I2C_RETRY_DELAY);
 			goto retry;
-		}
-
-		if (tfa0 != NULL && tfa0->blackbox_enable) {
-			group = tfa->dev_idx * ID_BLACKBOX_MAX;
-			tfa0->log_data[group + ID_I2CERR_COUNT]++;
 		}
 
 		return TFA98XX_ERROR_FAIL;
@@ -4812,8 +4800,8 @@ static ssize_t tfa98xx_blackbox_show(struct device *dev,
 			tfa0->log_data[offset + ID_OVERXMAX_COUNT],
 			tfa0->log_data[offset + ID_OVERTMAX_COUNT]);
 		count += snprintf(buf + strlen(buf), PAGE_SIZE,
-			"cntI2Cerr %d, ",
-			tfa0->log_data[offset + ID_I2CERR_COUNT]);
+			"cntOCPerr %d, ",
+			tfa0->log_data[offset + ID_OCP_COUNT]);
 		count += snprintf(buf + strlen(buf), PAGE_SIZE,
 			"cntNoClk %d, ",
 			tfa0->log_data[offset + ID_NOCLK_COUNT]);
@@ -4867,6 +4855,98 @@ static ssize_t tfa98xx_blackbox_store(struct device *dev,
 		if (ret < 0)
 			return ret;
 	}
+
+	return count;
+}
+
+static ssize_t tfa98xx_blackbox2_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct tfa98xx *tfa98xx = dev_get_drvdata(dev);
+	int count = 0;
+	int idx, ndev, offset;
+	struct tfa_device *tfa0 = NULL;
+
+	if (tfa98xx->tfa->tfa_family == 0) {
+		pr_err("[0x%x] %s: system is not initialized: not probed yet!\n",
+			tfa98xx->i2c->addr, __func__);
+		return -EIO;
+	}
+
+	ndev = tfa98xx->tfa->dev_count;
+	if (ndev < 1)
+		return -EINVAL;
+
+	/* set main device */
+	tfa0 = tfa98xx_get_tfa_device_from_index(-1);
+	if (tfa0 == NULL) {
+		pr_err("[0x%x] %s: head device not found\n",
+			tfa98xx->i2c->addr, __func__);
+		return -EINVAL;
+	}
+
+	pr_info("%s: [0x%x]head dev %d blackbox state: %d\n", __func__, 
+		tfa0->resp_address, tfa0->dev_idx, tfa0->blackbox_enable);
+
+	for (idx = 0; idx < ndev; idx++) {
+		offset = idx * ID_BLACKBOX_MAX;
+		if (idx == (ndev-1)) {
+			count += snprintf(buf + strlen(buf), PAGE_SIZE,
+				"%d,%d\n",
+				tfa0->log_data[offset + ID_OCP_COUNT],
+				tfa0->log_data[offset + ID_NOCLK_COUNT]);
+		} else {
+			count += snprintf(buf + strlen(buf), PAGE_SIZE,
+				"%d,%d,",
+				tfa0->log_data[offset + ID_OCP_COUNT],
+				tfa0->log_data[offset + ID_NOCLK_COUNT]);
+		}
+	}
+
+	return count;
+}
+
+static ssize_t tfa98xx_blackbox2_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct tfa98xx *tfa98xx = dev_get_drvdata(dev);
+	struct tfa_device *tfa0 = NULL;
+	int idx, ndev, offset;
+
+	if (tfa98xx->tfa->tfa_family == 0) {
+		pr_err("[0x%x] %s: system is not initialized: not probed yet!\n",
+			tfa98xx->i2c->addr, __func__);
+		return -EIO;
+	}
+
+	/* check string length, and account for eol */
+	if (count < 1)
+		return -EINVAL;
+
+	ndev = tfa98xx->tfa->dev_count;
+	if (ndev < 1)
+		return -EINVAL;
+
+	tfa0 = tfa98xx_get_tfa_device_from_index(-1);
+	if (tfa0 == NULL) {
+		pr_err("[0x%x] %s: head device not found\n",
+			tfa98xx->i2c->addr, __func__);
+		return -EINVAL;
+	}
+
+	pr_info("%s: [0x%x]head dev %d blackbox state: %d\n", __func__, 
+		tfa0->resp_address, tfa0->dev_idx, tfa0->blackbox_enable);
+
+	/* reset ocp and noclk count */
+	if (!strncmp(buf, "0", 1)) {
+		pr_info("%s: reset ocp and noclk count\n", __func__);
+		for (idx = 0; idx < ndev; idx++) {
+			offset = idx * ID_BLACKBOX_MAX;
+			tfa0->log_data[offset + ID_OCP_COUNT] = 0;
+			tfa0->log_data[offset + ID_NOCLK_COUNT] = 0;
+		}
+	
+}
 
 	return count;
 }
@@ -5279,6 +5359,15 @@ static struct device_attribute dev_attr_blackbox = {
 	},
 	.show = tfa98xx_blackbox_show,
 	.store = tfa98xx_blackbox_store,
+};
+
+static struct device_attribute dev_attr_blackbox2 = {
+	.attr = {
+		.name = "log2",
+		.mode = 0600,
+	},
+	.show = tfa98xx_blackbox2_show,
+	.store = tfa98xx_blackbox2_store,
 };
 
 static struct device_attribute dev_attr_gain = {
@@ -6259,6 +6348,10 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	ret = device_create_file(&i2c->dev, &dev_attr_blackbox);
 	if (ret)
 		dev_info(&i2c->dev, "error creating sysfs node, log\n");
+
+	ret = device_create_file(&i2c->dev, &dev_attr_blackbox2);
+	if (ret)
+		dev_info(&i2c->dev, "error creating sysfs node, log2\n");
 
 	ret = device_create_file(&i2c->dev, &dev_attr_gain);
 	if (ret)

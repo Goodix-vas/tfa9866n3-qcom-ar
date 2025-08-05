@@ -54,7 +54,7 @@ enum tfa98xx_blackbox_id {
 	ID_OVERXMAX_COUNT = 2,
 	ID_OVERTMAX_COUNT = 3,
 	/* device section */
-	ID_I2CERR_COUNT,
+	ID_OCP_COUNT,
 	ID_NOCLK_COUNT,
 	/* maintenance section */
 	ID_MAXX_KEEP_LOG,

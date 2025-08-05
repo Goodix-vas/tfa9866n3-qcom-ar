@@ -298,11 +298,14 @@ int tfa_irq_report(struct tfa_device *tfa)
 				panic("Forced kernel panic : irq %d\n", irq);
 			}
 #endif
-			if (irq != tfa9866_irq_stnoclk
-				|| !tfa->blackbox_enable || tfa0 == NULL)
-				continue;
-			group = tfa->dev_idx * ID_BLACKBOX_MAX;
-			tfa0->log_data[group + ID_NOCLK_COUNT]++;
+			if (tfa0 && irq == tfa9866_irq_stnoclk) {
+				group = tfa->dev_idx * ID_BLACKBOX_MAX;
+				tfa0->log_data[group + ID_NOCLK_COUNT]++;
+			}
+			if (tfa0 && irq == tfa9866_irq_stocpr) {
+				group = tfa->dev_idx * ID_BLACKBOX_MAX;
+				tfa0->log_data[group + ID_OCP_COUNT]++;
+			}
 		}
 
 	/* clear active irqs */
