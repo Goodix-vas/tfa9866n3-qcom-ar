@@ -3667,50 +3667,6 @@ static void tfa98xx_monitor(struct work_struct *work)
 			tfa_get_bf(tfa98xx->tfa,
 			tfa98xx->overlay_bf));
 	error = tfaxx_status(tfa98xx->tfa);
-#if defined(TFA_DEBUG_CODE_FOR_AUTO_TEST)
-	if (tfa98xx->tfa->revid == 0x200a66) { /**TFA9866 N3A0**/
-		/* Check if the register optimal setting is changed */
-		uint16_t reg_val;
-
-		error = reg_read(tfa98xx->tfa, 0x08, &reg_val);
-		/*	cmff_ctrl_nskip : Skip or shorten CMFF pulses in 4096fs cycles */
-		if (error != TFA98XX_ERROR_OK || (reg_val & 0x00f8) != 0x0098) {
-			panic("Forced kernel panic : error %d, 0x08 reg 0x%04x\n",
-				error, reg_val);
-		}
-
-		error = reg_read(tfa98xx->tfa, 0x50, &reg_val);
-		/* BSSR optimal setting is 1 */
-		if (error != TFA98XX_ERROR_OK || (reg_val & 0x4000) != 0x4000) {
-			panic("Forced kernel panic : error %d, 0x50 reg 0x%04x\n",
-				error, reg_val);
-		}
-
-		error = reg_read(tfa98xx->tfa, 0x65, &reg_val);
-		/* VBATMAX optimal setting is 1 */
-		if (error != TFA98XX_ERROR_OK || (reg_val & 0x0800) != 0x0800) {
-			panic("Forced kernel panic : error %d, 0x65 reg 0x%04x\n",
-				error, reg_val);
-		}
-
-		error = reg_read(tfa98xx->tfa, 0x74, &reg_val);
-		/* Check DCOFFSET, DCHOLD */
-		if (error != TFA98XX_ERROR_OK || (reg_val & 0x007c) != 0x0028 ||
-			(reg_val & 0x3e00) != 0x1e00) {
-			panic("Forced kernel panic : error %d, 0x74 reg 0x%04x\n",
-				error, reg_val);
-		}
-	}
-	/* Check IMPS register only in case of RCV call(profile idx is 2 or 3) */
-	if (tfa98xx->profile == 2 || tfa98xx->profile == 3) {
-		int idle_power_mode = 0;
-		idle_power_mode = TFAxx_GET_BF(tfa98xx->tfa, IPM);
-		/* in case of Idle power mode disabled */
-		if (idle_power_mode == 0x1 || idle_power_mode == 0x2) {
-			panic("Forced kernel panic : IMP %d\n", idle_power_mode);
-		}
-	}
-#endif // TFA_DEBUG_CODE_FOR_AUTO_TEST
 
 	/* TFA AMP On is done */
 	// notify_amp_on_done(tfa98xx->tfa->dev_idx); // top:0, bottom:1
@@ -4236,8 +4192,14 @@ static int _tfa98xx_mute(struct tfa98xx *tfa98xx, int mute, int stream)
 				/* get logging once
 				 * before shutting down pstream
 				 */
+#if !defined(TFA_PLATFORM_QUALCOMM)
 				pr_info("%s: get blackbox logging\n", __func__);
+#if defined(TFA_SUPPORT_NEW_DATALOGGER)
+				tfa_update_log2();
+#else
 				tfa_update_log();
+#endif
+#endif
 			}
 		tfa98xx->tfa->unset_log = 0;
 
@@ -4653,9 +4615,6 @@ static ssize_t tfa98xx_rw_write(struct file *filp, struct kobject *kobj,
 	if (data == NULL) {
 		ret = -ENOMEM;
 		pr_debug("can not allocate memory\n");
-#if defined(TFA_DEBUG_CODE_FOR_AUTO_TEST)
-		panic("Forced kernel panic : data alloc fail");
-#endif
 		return ret;
 	}
 
@@ -4945,8 +4904,7 @@ static ssize_t tfa98xx_blackbox2_store(struct device *dev,
 			tfa0->log_data[offset + ID_OCP_COUNT] = 0;
 			tfa0->log_data[offset + ID_NOCLK_COUNT] = 0;
 		}
-	
-}
+	}
 
 	return count;
 }
@@ -5684,7 +5642,11 @@ int tfa98xx_set_blackbox(int enable)
 	if (tfa->is_configured > 0) {
 		pr_info("%s: set blackbox directly\n", __func__);
 		tfa->individual_msg = 1;
+#if defined(TFA_SUPPORT_NEW_DATALOGGER)
+		ret = tfa_configure_log2(enable);
+#else
 		ret = tfa_configure_log(enable);
+#endif
 	}
 
 	return ret;

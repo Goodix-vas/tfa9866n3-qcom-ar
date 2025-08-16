@@ -214,6 +214,7 @@ struct tfa_device {
 	int disable_auto_cal;
 	int inchannel;
 	int ipcid[3];
+	int send_set_logger;
 };
 
 #define TFA_INCHANNEL(idx) \

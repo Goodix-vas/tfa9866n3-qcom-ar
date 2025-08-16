@@ -62,6 +62,24 @@ enum tfa98xx_blackbox_id {
 	ID_BLACKBOX_MAX
 };
 
+enum tfa98xx_blackbox2_id {
+	/* algorithm section */
+	ID2_MUTEIN_COUNT = 0,
+	ID2_MUTEOUT_COUNT = 1,
+	ID2_OPEN_CIRCUIT = 2,
+	ID2_OVERTMAX_COUNT = 3,
+	ID2_OVERXMAX_COUNT = 4,
+	ID2_MAXT_LOG = 5,
+	ID2_MAXX_LOG = 6,
+	/* device section */
+	ID2_OCP_COUNT,
+	ID2_NOCLK_COUNT,
+	/* maintenance section */
+	ID2_MAXX_KEEP_LOG,
+	ID2_MAXT_KEEP_LOG,
+	ID2_BLACKBOX_MAX
+};
+
 #define MAX_ID_BLACKBOX_TO_RESET ID_MAXX_KEEP_LOG
 
 enum tfa98xx_blackbox_offset {

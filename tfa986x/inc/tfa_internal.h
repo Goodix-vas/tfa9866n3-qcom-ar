@@ -87,9 +87,12 @@ enum tfa98xx_error tfa_get_cal_temp(int index, uint16_t *value);
 enum tfa98xx_error tfa_get_cal_temp_channel(int channel, uint16_t *value);
 
 #define TFA_LOG_MAX_COUNT	4
+#define TFA_LOG2_MAX_COUNT	7
 int tfa_set_blackbox(int enable);
 enum tfa98xx_error tfa_configure_log(int enable);
+enum tfa98xx_error tfa_configure_log2(int enable);
 enum tfa98xx_error tfa_update_log(void);
+enum tfa98xx_error tfa_update_log2(void);
 
 int tfa_get_power_state(int index);
 

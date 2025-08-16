@@ -53,13 +53,13 @@ static ssize_t ref_temp_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size);
 static DEVICE_ATTR_RW(ref_temp);
 
+#if defined(TFA_PLATFORM_QUALCOMM)
 static ssize_t config_show(struct device *dev,
 	struct device_attribute *attr, char *buf);
 static ssize_t config_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size);
 static DEVICE_ATTR(config, 0664, config_show, config_store);
 
-#if defined(TFA_PLATFORM_QUALCOMM)
 static ssize_t dummy_cal_show(struct device *dev,
 	struct device_attribute *attr, char *buf);
 static ssize_t dummy_cal_store(struct device *dev,
@@ -83,8 +83,8 @@ static struct attribute *tfa_cal_attr[] = {
 #endif /* TFA_STEREO_NODE */
 	&dev_attr_status.attr,
 	&dev_attr_ref_temp.attr,
-	&dev_attr_config.attr,
 #if defined(TFA_PLATFORM_QUALCOMM)
+	&dev_attr_config.attr,
 	&dev_attr_dummy_cal.attr,
 #if defined(TFA_STEREO_NODE)
 	&dev_attr_dummy_cal_r.attr,
@@ -484,6 +484,7 @@ static ssize_t ref_temp_store(struct device *dev,
 	return size;
 }
 
+#if defined(TFA_PLATFORM_QUALCOMM)
 static ssize_t config_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -544,7 +545,6 @@ static ssize_t config_store(struct device *dev,
 	return -EINVAL;
 }
 
-#if defined(TFA_PLATFORM_QUALCOMM)
 static ssize_t dummy_cal_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {

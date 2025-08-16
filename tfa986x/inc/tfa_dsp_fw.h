@@ -91,6 +91,7 @@ enum tfa_fw_event { /* not all available on each device */
 #define SB_PARAM_SET_LSMODEL            0x06
 #define SB_PARAM_SET_PARM_STEREO_BOOST  0x0A
 #define SB_PARAM_SET_DATA_LOGGER        0x0D
+#define SB_PARAM_SET_DATA_LOGGER2       0x3E
 #define SB_PARAM_SET_POWER_SAVER        0x0E
 #define SB_PARAM_SET_DATA_LOGGER_PARAMS 0x31
 
@@ -104,6 +105,7 @@ enum tfa_fw_event { /* not all available on each device */
 #define SB_PARAM_GET_MBDRC_DYNAMICS     0x89
 #define SB_PARAM_GET_PARM_STEREO_BOOST  0x8A
 #define SB_PARAM_GET_DATA_LOGGER        0x8D
+#define SB_PARAM_GET_DATA_LOGGER2       0xBE
 #define SB_PARAM_GET_TSPKR              0xA8
 
 /* Custom commands: aligned with wrapper */
