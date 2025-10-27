@@ -375,8 +375,10 @@ static ssize_t status_store(struct device *dev,
 		pr_info("%s: do nothing\n", __func__);
 		return -EINVAL;
 	}
-	if (cur_status)
+	if (cur_status) {
 		pr_info("%s: tfa_cal prior calibration still runs\n", __func__);
+		return -EINVAL;
+	}
 
 	pr_info("%s: tfa_cal begin\n", __func__);
 

@@ -2473,7 +2473,7 @@ static int tfa98xx_info_spkgain(struct snd_kcontrol *kcontrol,
 	mutex_lock(&tfa98xx_mutex);
 	uinfo->count = tfa98xx_device_count;
 	mutex_unlock(&tfa98xx_mutex);
-	uinfo->value.integer.min = -1 * 0x1f;
+	uinfo->value.integer.min = 0;
 	uinfo->value.integer.max = 0x1f;
 
 	return 0;
@@ -2492,24 +2492,9 @@ static int tfa98xx_get_spkgain(struct snd_kcontrol *kcontrol,
 		if (tfa == NULL)
 			continue;
 
-		spkgain = tfa->spkgain;
-		if (spkgain == -1) {
-			spkgain = TFAxx_GET_BF(tfa, TDMSPKG);
-			switch (tfa->rev & 0xff) {
-			case 0x66:
-				spkgain *= (TFAxx_GET_BF(tfa, MUSMODE) == 0)
-					? -1 : 1;
-				break;
-			default:
-				/* neither TFA987x */
-				break;
-			}
-			pr_info("%s: [%d] read current speaker gain 0x%x\n",
-				__func__, tfa->dev_idx, spkgain);
-		} else {
-			spkgain *= (tfa->inplev == 1) ? -1 : 1;
-		}
-
+		spkgain = TFAxx_GET_BF(tfa, TDMSPKG);
+		pr_info("%s: [%d] read current speaker gain %d\n",
+			__func__, tfa->dev_idx, spkgain);
 		ucontrol->value.integer.value[tfa->dev_idx] = spkgain;
 	}
 	mutex_unlock(&tfa98xx_mutex);
@@ -2524,7 +2509,7 @@ static int tfa98xx_set_spkgain(struct snd_kcontrol *kcontrol,
 	struct tfa_device *tfa = NULL;
 	enum tfa98xx_error err;
 	int dev;
-	int set_val, cur_spkgain;
+	int cur_spkgain;
 
 	mutex_lock(&tfa98xx_mutex);
 	list_for_each_entry(tfa98xx, &tfa98xx_device_list, list) {
@@ -2533,38 +2518,14 @@ static int tfa98xx_set_spkgain(struct snd_kcontrol *kcontrol,
 			continue;
 
 		dev = tfa->dev_idx;
-		set_val = ucontrol->value.integer.value[dev];
-		tfa->spkgain = set_val * ((set_val < 0) ? -1 : 1);
-		tfa->inplev = (set_val < 0) ? 1 : 0;
-
+		tfa->spkgain = ucontrol->value.integer.value[dev];
 		cur_spkgain = TFAxx_GET_BF(tfa, TDMSPKG);
-		switch (tfa->rev & 0xff) {
-		case 0x66:
-			cur_spkgain *= (TFAxx_GET_BF(tfa,
-				MUSMODE) == 0) ? -1 : 1;
-			break;
-		default:
-			/* neither TFA987x */
-			break;
-		}
-		pr_info("%s: [%d] set spekaer gain 0x%x / 0x%x (currently, 0x%x)\n",
-			__func__, dev, tfa->spkgain, tfa->inplev, cur_spkgain);
+		pr_info("%s: [%d] set spekaer gain %d (currently, %d)\n",
+			__func__, dev, tfa->spkgain, cur_spkgain);
 
 		err = TFAxx_SET_BF(tfa, TDMSPKG, tfa->spkgain);
 		if (err)
 			pr_err("%s: [%d] failed to set speaker gain\n",
-				__func__, dev);
-		switch (tfa->rev & 0xff) {
-		case 0x66:
-			err = TFAxx_SET_BF(tfa, MUSMODE,
-				(tfa->inplev == 1) ? 0 : 1);
-			break;
-		default:
-			/* neither TFA987x */
-			break;
-		}
-		if (err)
-			pr_err("%s: [%d] failed to set input level\n",
 				__func__, dev);
 	}
 	mutex_unlock(&tfa98xx_mutex);
