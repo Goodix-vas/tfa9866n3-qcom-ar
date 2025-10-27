@@ -1,0 +1,28 @@
+load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
+
+kernel_module(
+    name = "tfa986x_dlkm",
+    srcs = glob([
+        "tfa98xx.c",
+        "tfa_container.c",
+        "tfa_dsp.c",
+        "tfa_init.c",
+        "inc/*.h",
+    ]),
+    outs = [
+        "tfa986x_dlkm.ko",
+    ],
+)
+
+kernel_module(
+    name = "tfa986x_sysfs_dlkm",
+    srcs = glob([
+        "tfa_sysfs.c",
+        "tfa_stc.c",
+        "tfa_cal.c",
+        "inc/*.h",
+    ]),
+    outs = [
+        "tfa986x_sysfs_dlkm.ko",
+    ],
+)
