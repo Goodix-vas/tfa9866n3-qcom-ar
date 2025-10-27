@@ -4498,7 +4498,6 @@ enum tfa98xx_error tfaxx_status(struct tfa_device *tfa)
 		pr_err("%s: Misc errors in #1 detected: STATUS_FLAG0 = 0x%x\n",
 			__func__, val);
 	if (TFAxx_GET_BF_VALUE(tfa, CLKOOR, val)
-		|| !TFAxx_GET_BF_VALUE(tfa, DCOCPOK, val)
 		|| !TFAxx_GET_BF_VALUE(tfa, OCPOAP, val)
 		|| !TFAxx_GET_BF_VALUE(tfa, OCPOAN, val)
 		|| !TFAxx_GET_BF_VALUE(tfa, OCPOBP, val)
