@@ -6018,7 +6018,7 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 		goto tfa98xx_i2c_probe_fail;
 	}
 
-	vdd = devm_regulator_get(&i2c->dev, "swr-slave");
+	vdd = devm_regulator_get(&i2c->dev, "vddad");
 	if (IS_ERR(vdd)) {
 		ret = PTR_ERR(vdd);
 		if (ret == -EPROBE_DEFER)
