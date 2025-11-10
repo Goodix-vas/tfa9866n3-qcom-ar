@@ -6003,6 +6003,7 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	struct snd_soc_dai_driver *dai = NULL;
 	struct tfa98xx *tfa98xx = NULL;
 	struct device_node *np = i2c->dev.of_node;
+	struct regulator *vdd;
 	int irq_flags;
 	unsigned int reg;
 	int ret;
@@ -6016,6 +6017,22 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 		dev_err(&i2c->dev, "I2C check_functionality failed\n");
 		goto tfa98xx_i2c_probe_fail;
 	}
+
+	vdd = devm_regulator_get(&i2c->dev, "swr-slave");
+	if (IS_ERR(vdd)) {
+		ret = PTR_ERR(vdd);
+		if (ret == -EPROBE_DEFER)
+			pr_info("%s: deferred probing\n", __func__);
+		else
+			dev_err(&i2c->dev, "Failed to get swr-slave vdd: %d\n", ret);
+		return ret;
+	}
+	ret = regulator_enable(vdd);
+	if (ret) {
+		dev_err(&i2c->dev, "Failed to enable vdd: %d\n", ret);
+		return ret;
+	}
+	pr_info("swr-slave vdd is ready, continue probe\n");
 
 	mutex_lock(&tfa98xx_mutex);
 	tfa98xx = devm_kzalloc(&i2c->dev,
