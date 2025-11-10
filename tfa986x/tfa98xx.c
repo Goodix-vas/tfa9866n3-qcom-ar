@@ -6024,7 +6024,7 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 		if (ret == -EPROBE_DEFER)
 			pr_info("%s: deferred probing\n", __func__);
 		else
-			dev_err(&i2c->dev, "Failed to get swr-slave vdd: %d\n", ret);
+			dev_err(&i2c->dev, "Failed to get vddad : %d\n", ret);
 		return ret;
 	}
 	ret = regulator_enable(vdd);
@@ -6032,7 +6032,7 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 		dev_err(&i2c->dev, "Failed to enable vdd: %d\n", ret);
 		return ret;
 	}
-	pr_info("swr-slave vdd is ready, continue probe\n");
+	pr_info("vddad is ready, continue probe\n");
 
 	mutex_lock(&tfa98xx_mutex);
 	tfa98xx = devm_kzalloc(&i2c->dev,
