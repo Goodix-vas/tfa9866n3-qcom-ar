@@ -4343,6 +4343,7 @@ static void tfa98xx_remove(struct snd_soc_component *component)
 }
 
 static const struct snd_soc_component_driver soc_component_dev_tfa98xx = {
+	.name = "tfa98xx",
 	.probe = tfa98xx_probe,
 	.remove = tfa98xx_remove,
 };
