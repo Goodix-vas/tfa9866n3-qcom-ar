@@ -53,6 +53,7 @@
 #define I2C_RETRIES 50
 #define I2C_RETRY_DELAY 5 /* ms */
 #define TFA_RESET_DELAY 5 /* ms */
+#define I2C_VDD_DEFER_LATENCY 10 /* ms */
 
 #include <linux/power_supply.h>
 #define REF_TEMP_DEVICE_NAME "battery"
@@ -6022,8 +6023,10 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	vdd = devm_regulator_get(&i2c->dev, "vddad");
 	if (IS_ERR(vdd)) {
 		ret = PTR_ERR(vdd);
-		if (ret == -EPROBE_DEFER)
+		if (ret == -EPROBE_DEFER) {
 			pr_info("%s: deferred probing\n", __func__);
+			msleep(I2C_VDD_DEFER_LATENCY); // 10ms delay
+		}
 		else
 			dev_err(&i2c->dev, "Failed to get vddad : %d\n", ret);
 		return ret;
