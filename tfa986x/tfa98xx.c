@@ -4409,7 +4409,8 @@ static int tfa98xx_ext_reset(struct tfa98xx *tfa98xx)
 		gpio_set_value_cansleep((unsigned int)tfa98xx->reset_gpio,
 			!reset);
 		msleep(TFA_RESET_DELAY);
-	}
+	} else
+		msleep(I2C_VDD_DEFER_LATENCY);
 
 	return 0;
 }
