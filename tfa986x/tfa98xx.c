@@ -6006,7 +6006,8 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	struct snd_soc_dai_driver *dai = NULL;
 	struct tfa98xx *tfa98xx = NULL;
 	struct device_node *np = i2c->dev.of_node;
-	struct regulator *vdd;
+	struct regulator *vddi2c = NULL;
+	struct regulator *vddad = NULL;
 	int irq_flags;
 	unsigned int reg;
 	int ret;
@@ -6021,23 +6022,39 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 		goto tfa98xx_i2c_probe_fail;
 	}
 
-	vdd = devm_regulator_get(&i2c->dev, "vddad");
-	if (IS_ERR(vdd)) {
-		ret = PTR_ERR(vdd);
+	vddi2c = devm_regulator_get(&i2c->dev, "vddi2c");
+	if (IS_ERR(vddi2c)) {
+		ret = PTR_ERR(vddi2c);
 		if (ret == -EPROBE_DEFER) {
-			pr_info("%s: deferred probing\n", __func__);
+			pr_info("%s: vddi2c is not ready, deferring probe\n", __func__);
+			msleep(I2C_VDD_DEFER_LATENCY); // 10ms delay
+		}
+		else
+			dev_err(&i2c->dev, "Failed to get vddi2c : %d\n", ret);
+		return ret;
+	}
+	vddad = devm_regulator_get(&i2c->dev, "vddad");
+	if (IS_ERR(vddad)) {
+		ret = PTR_ERR(vddad);
+		if (ret == -EPROBE_DEFER) {
+			pr_info("%s: vddad is not ready, deferring probe\n", __func__);
 			msleep(I2C_VDD_DEFER_LATENCY); // 10ms delay
 		}
 		else
 			dev_err(&i2c->dev, "Failed to get vddad : %d\n", ret);
 		return ret;
 	}
-	ret = regulator_enable(vdd);
+	ret = regulator_enable(vddi2c);
 	if (ret) {
-		dev_err(&i2c->dev, "Failed to enable vdd: %d\n", ret);
+		dev_err(&i2c->dev, "Failed to enable vddi2c: %d\n", ret);
 		return ret;
 	}
-	pr_info("vddad is ready, continue probe\n");
+	ret = regulator_enable(vddad);
+	if (ret) {
+		dev_err(&i2c->dev, "Failed to enable vddad: %d\n", ret);
+		return ret;
+	}
+	pr_info("both vddi2c and vddad are enabled, continue probe\n");
 
 	mutex_lock(&tfa98xx_mutex);
 	tfa98xx = devm_kzalloc(&i2c->dev,
