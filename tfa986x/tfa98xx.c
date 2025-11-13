@@ -53,7 +53,7 @@
 #define I2C_RETRIES 50
 #define I2C_RETRY_DELAY 5 /* ms */
 #define TFA_RESET_DELAY 5 /* ms */
-#define I2C_VDD_DEFER_LATENCY 10 /* ms */
+#define VDD_DEFER_LATENCY 10 /* ms */
 
 #include <linux/power_supply.h>
 #define REF_TEMP_DEVICE_NAME "battery"
@@ -4409,8 +4409,7 @@ static int tfa98xx_ext_reset(struct tfa98xx *tfa98xx)
 		gpio_set_value_cansleep((unsigned int)tfa98xx->reset_gpio,
 			!reset);
 		msleep(TFA_RESET_DELAY);
-	} else
-		msleep(I2C_VDD_DEFER_LATENCY);
+	}
 
 	return 0;
 }
@@ -6006,7 +6005,6 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	struct snd_soc_dai_driver *dai = NULL;
 	struct tfa98xx *tfa98xx = NULL;
 	struct device_node *np = i2c->dev.of_node;
-	struct regulator *vddi2c = NULL;
 	struct regulator *vddad = NULL;
 	int irq_flags;
 	unsigned int reg;
@@ -6022,31 +6020,15 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 		goto tfa98xx_i2c_probe_fail;
 	}
 
-	vddi2c = devm_regulator_get(&i2c->dev, "vddi2c");
-	if (IS_ERR(vddi2c)) {
-		ret = PTR_ERR(vddi2c);
-		if (ret == -EPROBE_DEFER) {
-			pr_info("%s: vddi2c is not ready, deferring probe\n", __func__);
-			msleep(I2C_VDD_DEFER_LATENCY); // 10ms delay
-		}
-		else
-			dev_err(&i2c->dev, "Failed to get vddi2c : %d\n", ret);
-		return ret;
-	}
 	vddad = devm_regulator_get(&i2c->dev, "vddad");
 	if (IS_ERR(vddad)) {
 		ret = PTR_ERR(vddad);
 		if (ret == -EPROBE_DEFER) {
 			pr_info("%s: vddad is not ready, deferring probe\n", __func__);
-			msleep(I2C_VDD_DEFER_LATENCY); // 10ms delay
+			msleep(VDD_DEFER_LATENCY); // 10ms delay
 		}
 		else
 			dev_err(&i2c->dev, "Failed to get vddad : %d\n", ret);
-		return ret;
-	}
-	ret = regulator_enable(vddi2c);
-	if (ret) {
-		dev_err(&i2c->dev, "Failed to enable vddi2c: %d\n", ret);
 		return ret;
 	}
 	ret = regulator_enable(vddad);
@@ -6054,7 +6036,7 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 		dev_err(&i2c->dev, "Failed to enable vddad: %d\n", ret);
 		return ret;
 	}
-	pr_info("both vddi2c and vddad are enabled, continue probe\n");
+	pr_info("vddad is enabled, continue probe\n");
 
 	mutex_lock(&tfa98xx_mutex);
 	tfa98xx = devm_kzalloc(&i2c->dev,
@@ -6126,11 +6108,18 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	tfa98xx_ext_reset(tfa98xx);
 
 	if ((no_start == 0) && (no_reset == 0)) {
+		int retries = I2C_RETRIES;
+retry:
 		ret = regmap_read(tfa98xx->regmap,
 			TFA98XX_DEVICE_REVISION0, &reg);
 		if (ret < 0) {
-			dev_err(&i2c->dev, "Failed to read Revision register: %d\n",
-				ret);
+			dev_err(&i2c->dev, "Failed to read Revision register: %d, retries left: %d\n",
+				ret, retries);
+			if (retries) {
+				retries--;
+				msleep(I2C_RETRY_DELAY);
+				goto retry;
+			}
 			mutex_unlock(&tfa98xx_mutex);
 			goto tfa98xx_i2c_probe_exit;
 		}
