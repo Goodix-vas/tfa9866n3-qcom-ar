@@ -51,6 +51,7 @@
 #endif
 
 #define I2C_RETRIES 50
+#define I2C_1ST_ACCESS_RETRIES 10
 #define I2C_RETRY_DELAY 5 /* ms */
 #define TFA_RESET_DELAY 5 /* ms */
 #define VDD_DEFER_LATENCY 10 /* ms */
@@ -6108,7 +6109,7 @@ static int tfa98xx_i2c_probe(struct i2c_client *i2c,
 	tfa98xx_ext_reset(tfa98xx);
 
 	if ((no_start == 0) && (no_reset == 0)) {
-		int retries = I2C_RETRIES;
+		int retries = I2C_1ST_ACCESS_RETRIES;
 retry:
 		ret = regmap_read(tfa98xx->regmap,
 			TFA98XX_DEVICE_REVISION0, &reg);
