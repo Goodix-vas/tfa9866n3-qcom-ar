@@ -11,7 +11,7 @@
 #include "inc/tfa_sysfs.h"
 
 #define TFA_CAL_DEV_NAME	"tfa_cal"
-#define FILESIZE_CAL	(10)
+#define FILESIZE_CAL	(12)
 
 /* ---------------------------------------------------------------------- */
 
@@ -550,13 +550,17 @@ static ssize_t config_store(struct device *dev,
 static ssize_t dummy_cal_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	int size;
+	int size = 0;
+	int dummy_cal = 0;
 	char cal_result[FILESIZE_CAL] = {0};
 	int idx = tfa_get_dev_idx_from_inchannel(0);
 	struct tfa_device *tfa = tfa98xx_get_tfa_device_from_index(idx);
 
-	pr_info("%s: dev %d, dummy cal %d\n", __func__, idx, tfa->dummy_cal);
-	snprintf(cal_result, FILESIZE_CAL, "%d", tfa->dummy_cal);
+	if (tfa != NULL)
+		dummy_cal = tfa->dummy_cal;
+
+	pr_info("%s: dev %d, dummy cal %d\n", __func__, idx, dummy_cal);
+	snprintf(cal_result, FILESIZE_CAL, "%d", dummy_cal);
 	size = snprintf(buf, strlen(cal_result) + 1, "%s", cal_result);
 
 	return size;
@@ -571,12 +575,15 @@ static ssize_t dummy_cal_store(struct device *dev,
 
 	ret = kstrtou32(buf, 10, &value);
 	if (ret < 0) {
-		pr_err("%s: wronmg value: %s\n", __func__, buf);
+		pr_err("%s: wrong value: %s\n", __func__, buf);
 		return -EINVAL;
 	}
 	pr_info("%s: dev %d, dummy cal %d\n", __func__, idx, value);
 
-	tfa->dummy_cal = value;
+	if (tfa != NULL)
+		tfa->dummy_cal = value;
+	else
+		pr_info("%s: It's not stored as tfa is NULL\n", __func__);
 
 	return size;
 }
@@ -585,13 +592,17 @@ static ssize_t dummy_cal_store(struct device *dev,
 static ssize_t dummy_cal_r_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	int size;
+	int size = 0;
+	int dummy_cal = 0;
 	char cal_result[FILESIZE_CAL] = {0};
 	int idx = tfa_get_dev_idx_from_inchannel(1);
 	struct tfa_device *tfa = tfa98xx_get_tfa_device_from_index(idx);
 
-	pr_info("%s: dev %d, dummy cal %d\n", __func__, idx, tfa->dummy_cal);
-	snprintf(cal_result, FILESIZE_CAL, "%d", tfa->dummy_cal);
+	if (tfa != NULL)
+		dummy_cal = tfa->dummy_cal;
+
+	pr_info("%s: dev %d, dummy cal %d\n", __func__, idx, dummy_cal);
+	snprintf(cal_result, FILESIZE_CAL, "%d", dummy_cal);
 	size = snprintf(buf, strlen(cal_result) + 1, "%s", cal_result);
 
 	return size;
@@ -606,12 +617,15 @@ static ssize_t dummy_cal_r_store(struct device *dev,
 
 	ret = kstrtou32(buf, 10, &value);
 	if (ret < 0) {
-		pr_err("%s: wronmg value: %s\n", __func__, buf);
+		pr_err("%s: wrong value: %s\n", __func__, buf);
 		return -EINVAL;
 	}
 	pr_info("%s: dev %d, dummy cal %d\n", __func__, idx, value);
 
-	tfa->dummy_cal = value;
+	if (tfa != NULL)
+		tfa->dummy_cal = value;
+	else
+		pr_info("%s: It's not stored as tfa is NULL\n", __func__);
 
 	return size;
 }
