@@ -2109,6 +2109,16 @@ enum tfa98xx_error tfa_set_calibration_values(struct tfa_device *tfa)
 		bytes[3] = (uint8_t)((dsp_cal_value[1] >> 16) & 0xff);
 		bytes[4] = (uint8_t)((dsp_cal_value[1] >> 8) & 0xff);
 		bytes[5] = (uint8_t)(dsp_cal_value[1] & 0xff);
+
+		if (tfa->blackbox_enable) {
+			/* set logging once before configuring */
+			pr_info("%s: set blackbox logging\n", __func__);
+#if defined(TFA_SUPPORT_NEW_DATALOGGER)
+			tfa_configure_log2(tfa->blackbox_enable);
+#else
+			tfa_configure_log(tfa->blackbox_enable);
+#endif
+		}
 	} else { /* calibration is required */
 		pr_info("%s: config ResetRe25C to do calibration\n", __func__);
 		bytes[0] = 0;
@@ -2723,11 +2733,10 @@ void tfa_set_spkgain(struct tfa_device *tfa)
 	if (tfa == NULL || tfa->spkgain == -1)
 		return;
 
-	pr_info("%s: set speaker gain %d inplev %d\n",
+	pr_info("%s: set speaker gain 0x%x inplev %d\n",
 		__func__, tfa->spkgain, tfa->inplev);
 	TFAxx_SET_BF(tfa, TDMSPKG, tfa->spkgain);
 
-#if 0 // not need anymore as TDMSPKG is configured by only mixer 
 	if (tfa->inplev == -1)
 		return;
 	switch (tfa->rev & 0xff) {
@@ -2738,7 +2747,6 @@ void tfa_set_spkgain(struct tfa_device *tfa)
 		/* neither TFA987x */
 		break;
 	}
-#endif
 }
 
 enum tfa98xx_error tfa_wait_cal(struct tfa_device *tfa)
@@ -3177,6 +3185,7 @@ void tfa_reset_active_handle(struct tfa_device *tfa)
 		/* reload setting afterwards, if speaker gain is forced */
 		if (ntfa->spkgain != -1)
 			ntfa->first_after_boot = 1;
+		ntfa->spkgain = -1;
 		ntfa->inplev = -1;
 	}
 }
