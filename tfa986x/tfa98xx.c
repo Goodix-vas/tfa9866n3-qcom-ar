@@ -3678,7 +3678,6 @@ static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
 {
 	int ret;
 	static bool failed;
-	bool reschedule = false;
 	bool sync = false;
 	bool do_sync;
 	int active_device_count = tfa98xx_device_count;
@@ -3726,22 +3725,6 @@ static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
 	}
 
 	mutex_unlock(&tfa98xx->dsp_lock);
-
-	if (reschedule) {
-		struct tfa98xx *ntfa98xx;
-
-		failed = false;
-
-		/* reschedule this init work for later */
-		list_for_each_entry(ntfa98xx, &tfa98xx_device_list, list) {
-			ntfa98xx->init_count++;
-			pr_info("%s: dsp_init (direct) with device %d, profile %d\n",
-				__func__,
-				ntfa98xx->tfa->dev_idx,
-				ntfa98xx->profile);
-			tfa98xx_dsp_init(ntfa98xx);
-		}
-	}
 
 	if (!sync)
 		return;
@@ -3973,6 +3956,7 @@ static int tfa98xx_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	struct tfa98xx *tfa98xx
 		= snd_soc_component_get_drvdata(codec_dai->component);
 
+	pr_info("%s: clk_id=%d, freq=%d, dir=%d\n", __func__, clk_id, freq, dir);
 	if (tfa98xx == NULL)
 		return 0;
 
@@ -3983,7 +3967,9 @@ static int tfa98xx_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 static int tfa98xx_set_tdm_slot(struct snd_soc_dai *dai, unsigned int tx_mask,
 	unsigned int rx_mask, int slots, int slot_width)
 {
-	pr_debug("\n");
+	pr_info("%s: tx_mask=%d, rx_mask=%d, slots=%d, slot_width=%d\n", 
+		__func__, tx_mask, rx_mask, slots, slot_width);
+
 	return 0;
 }
 
@@ -4032,7 +4018,6 @@ static int tfa98xx_hw_params(struct snd_pcm_substream *substream,
 	struct tfa98xx *tfa98xx
 		= snd_soc_component_get_drvdata(component);
 	unsigned int rate;
-	int prof_idx;
 	int sample_size;
 	int slot_size;
 
@@ -4048,23 +4033,11 @@ static int tfa98xx_hw_params(struct snd_pcm_substream *substream,
 	if (tfa98xx == NULL || tfa98xx->tfa == NULL)
 		return 0;
 
-	pr_info("%s: forced to change rate: %d to %d\n",
-		__func__, rate, sr_converted);
-	rate = sr_converted;
-
-	/* check if samplerate is supported for this mixer profile */
-	prof_idx = get_profile_id_for_sr(tfa98xx_mixer_profile, rate);
-	if (prof_idx < 0) {
-		pr_err("tfa98xx: invalid sample rate %d.\n", rate);
-		return -EINVAL;
-	}
-	pr_debug("mixer profile:container profile = [%d:%d]\n",
-		tfa98xx_mixer_profile, prof_idx);
-
 	/* update 'real' profile (container profile) */
-	tfa98xx->profile = prof_idx;
+	tfa98xx->profile = tfa98xx_mixer_profile;
 
-	pr_info("%s: tfa98xx_profile %d\n", __func__, tfa98xx->profile);
+	pr_info("%s: dev[%d] tfa98xx_profile %d\n", __func__,
+		tfa98xx->tfa->dev_idx, tfa98xx->profile);
 
 	/* update to new rate */
 	tfa98xx->rate = rate;
@@ -4116,8 +4089,8 @@ static int _tfa98xx_mute(struct tfa98xx *tfa98xx, int mute, int stream)
 		}
 
 		mutex_lock(&tfa98xx->dsp_lock);
-		pr_info("mute:%d [pstream %d, cstream %d]\n",
-			mute, tfa98xx->pstream, tfa98xx->cstream);
+		pr_info("mute:%d dev[%d] stream %d [pstream %d, cstream %d]\n", mute,
+			tfa98xx->tfa->dev_idx, stream, tfa98xx->pstream, tfa98xx->cstream);
 
 		if ((tfa98xx_count_active_stream(BIT_PSTREAM)
 			== tfa98xx_device_count)
@@ -4181,8 +4154,8 @@ static int _tfa98xx_mute(struct tfa98xx *tfa98xx, int mute, int stream)
 		else if (stream == SNDRV_PCM_STREAM_CAPTURE)
 			tfa98xx->cstream = 1;
 		mutex_lock(&tfa98xx->dsp_lock);
-		pr_info("mute:%d [pstream %d, cstream %d]\n",
-			mute, tfa98xx->pstream, tfa98xx->cstream);
+		pr_info("mute:%d dev[%d] stream %d [pstream %d, cstream %d]\n", mute,
+			tfa98xx->tfa->dev_idx, stream, tfa98xx->pstream, tfa98xx->cstream);
 		tfa98xx_set_stream_state(tfa98xx->tfa,
 			(tfa98xx->pstream & BIT_PSTREAM)
 			|((tfa98xx->cstream<<1) & BIT_CSTREAM));
@@ -5579,16 +5552,6 @@ int tfa98xx_set_blackbox(int enable)
 	pr_info("%s: blackbox < %d\n", __func__, enable);
 	ret = tfa_set_blackbox(enable);
 
-	if (tfa->is_configured > 0) {
-		pr_info("%s: set blackbox directly\n", __func__);
-		tfa->individual_msg = 1;
-#if defined(TFA_SUPPORT_NEW_DATALOGGER)
-		ret = tfa_configure_log2(enable);
-#else
-		ret = tfa_configure_log(enable);
-#endif
-	}
-
 	return ret;
 }
 EXPORT_SYMBOL(tfa98xx_set_blackbox);
@@ -5621,16 +5584,6 @@ int tfa98xx_get_blackbox_data(int dev, int *data)
 		return ret;
 	}
 
-	/* update current session if it's active */
-	/* check head device */
-	if (tfa98xx_count_active_stream(BIT_PSTREAM) > 0
-		&& tfa->is_configured > 0) {
-		ret = tfa_update_log();
-		if (ret != TFA98XX_ERROR_OK)
-			pr_info("%s: failure in updating current data\n",
-				__func__);
-	}
-
 	offset = dev * ID_BLACKBOX_MAX;
 	memcpy(data, tfa->log_data + offset,
 		sizeof(int) * ID_BLACKBOX_MAX);
@@ -5647,7 +5600,6 @@ int tfa98xx_get_blackbox_data_index(int dev, int index, int reset)
 {
 	struct tfa_device *tfa = NULL;
 	int ndev = 0;
-	enum tfa98xx_error ret = TFA98XX_ERROR_OK;
 	int offset;
 	int value = 0;
 
@@ -5673,16 +5625,6 @@ int tfa98xx_get_blackbox_data_index(int dev, int index, int reset)
 		pr_info("%s: blackbox disabled - no update\n",
 			__func__);
 		return -ENODEV;
-	}
-
-	/* update current session if it's active */
-	/* check head device */
-	if (tfa98xx_count_active_stream(BIT_PSTREAM) > 0
-		&& tfa->is_configured > 0) {
-		ret = tfa_update_log();
-		if (ret != TFA98XX_ERROR_OK)
-			pr_info("%s: failure in updating current data\n",
-				__func__);
 	}
 
 	offset = dev * ID_BLACKBOX_MAX;
