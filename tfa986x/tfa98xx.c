@@ -3770,6 +3770,7 @@ static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
 				tfa98xx->dsp_init
 					= TFA98XX_DSP_INIT_FAIL;
 			tfa98xx_set_dsp_configured(tfa98xx);
+			tfa_set_spkgain(ntfa); // need to setgain for all tfa devices
 			mutex_unlock(&tfa98xx->dsp_lock);
 
 			if (!tfa_is_active_device(ntfa))
@@ -3787,7 +3788,6 @@ static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
 			}
 
 			mutex_lock(&tfa98xx->dsp_lock);
-			tfa_set_spkgain(ntfa);
 			pr_info("%s: UNMUTE dev %d\n",
 				__func__, ntfa->dev_idx);
 			tfa_dev_set_state(ntfa,
