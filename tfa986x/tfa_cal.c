@@ -59,19 +59,6 @@ static ssize_t config_show(struct device *dev,
 static ssize_t config_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size);
 static DEVICE_ATTR(config, 0664, config_show, config_store);
-
-static ssize_t dummy_cal_show(struct device *dev,
-	struct device_attribute *attr, char *buf);
-static ssize_t dummy_cal_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t size);
-static DEVICE_ATTR_RW(dummy_cal);
-#if defined(TFA_STEREO_NODE)
-static ssize_t dummy_cal_r_show(struct device *dev,
-	struct device_attribute *attr, char *buf);
-static ssize_t dummy_cal_r_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t size);
-static DEVICE_ATTR_RW(dummy_cal_r);
-#endif
 #endif
 
 static struct attribute *tfa_cal_attr[] = {
@@ -85,10 +72,6 @@ static struct attribute *tfa_cal_attr[] = {
 	&dev_attr_ref_temp.attr,
 #if defined(TFA_PLATFORM_QUALCOMM)
 	&dev_attr_config.attr,
-	&dev_attr_dummy_cal.attr,
-#if defined(TFA_STEREO_NODE)
-	&dev_attr_dummy_cal_r.attr,
-#endif
 #endif
 	NULL,
 };
@@ -546,90 +529,6 @@ static ssize_t config_store(struct device *dev,
 
 	return -EINVAL;
 }
-
-static ssize_t dummy_cal_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	int size = 0;
-	int dummy_cal = 0;
-	char cal_result[FILESIZE_CAL] = {0};
-	int idx = tfa_get_dev_idx_from_inchannel(0);
-	struct tfa_device *tfa = tfa98xx_get_tfa_device_from_index(idx);
-
-	if (tfa != NULL)
-		dummy_cal = tfa->dummy_cal;
-
-	pr_info("%s: dev %d, dummy cal %d\n", __func__, idx, dummy_cal);
-	snprintf(cal_result, FILESIZE_CAL, "%d", dummy_cal);
-	size = snprintf(buf, strlen(cal_result) + 1, "%s", cal_result);
-
-	return size;
-}
-
-static ssize_t dummy_cal_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t size)
-{
-	int ret = 0, value = 0;
-	int idx = tfa_get_dev_idx_from_inchannel(0);
-	struct tfa_device *tfa = tfa98xx_get_tfa_device_from_index(idx);
-
-	ret = kstrtou32(buf, 10, &value);
-	if (ret < 0) {
-		pr_err("%s: wrong value: %s\n", __func__, buf);
-		return -EINVAL;
-	}
-	pr_info("%s: dev %d, dummy cal %d\n", __func__, idx, value);
-
-	if (tfa != NULL)
-		tfa->dummy_cal = value;
-	else
-		pr_info("%s: It's not stored as tfa is NULL\n", __func__);
-
-	return size;
-}
-
-#if defined(TFA_STEREO_NODE)
-static ssize_t dummy_cal_r_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	int size = 0;
-	int dummy_cal = 0;
-	char cal_result[FILESIZE_CAL] = {0};
-	int idx = tfa_get_dev_idx_from_inchannel(1);
-	struct tfa_device *tfa = tfa98xx_get_tfa_device_from_index(idx);
-
-	if (tfa != NULL)
-		dummy_cal = tfa->dummy_cal;
-
-	pr_info("%s: dev %d, dummy cal %d\n", __func__, idx, dummy_cal);
-	snprintf(cal_result, FILESIZE_CAL, "%d", dummy_cal);
-	size = snprintf(buf, strlen(cal_result) + 1, "%s", cal_result);
-
-	return size;
-}
-
-static ssize_t dummy_cal_r_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t size)
-{
-	int ret = 0, value = 0;
-	int idx = tfa_get_dev_idx_from_inchannel(1);
-	struct tfa_device *tfa = tfa98xx_get_tfa_device_from_index(idx);
-
-	ret = kstrtou32(buf, 10, &value);
-	if (ret < 0) {
-		pr_err("%s: wrong value: %s\n", __func__, buf);
-		return -EINVAL;
-	}
-	pr_info("%s: dev %d, dummy cal %d\n", __func__, idx, value);
-
-	if (tfa != NULL)
-		tfa->dummy_cal = value;
-	else
-		pr_info("%s: It's not stored as tfa is NULL\n", __func__);
-
-	return size;
-}
-#endif // TFA_STEREO_NODE
 #endif // TFA_PLATFORM_QUALCOMM
 
 int tfa98xx_cal_init(struct class *tfa_class)
