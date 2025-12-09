@@ -214,7 +214,7 @@ static ssize_t rdc_store(struct device *dev,
 
 	ret = kstrtou32(buf, 10, &value);
 	if (ret < 0) {
-		pr_info("%s: wronmg value: %s\n", __func__, buf);
+		pr_err("%s: wrong value: %s\n", __func__, buf);
 		return -EINVAL;
 	}
 
@@ -280,7 +280,7 @@ static ssize_t rdc_r_store(struct device *dev,
 
 	ret = kstrtou32(buf, 10, &value);
 	if (ret < 0) {
-		pr_info("%s: wronmg value: %s\n", __func__, buf);
+		pr_err("%s: wrong value: %s\n", __func__, buf);
 		return -EINVAL;
 	}
 
@@ -501,12 +501,18 @@ static ssize_t config_store(struct device *dev,
 	}
 
 	ret = kstrtou32(buf, 10, &status);
+	if (ret < 0) {
+		pr_err("%s: wrong value: %s\n", __func__, buf);
+		return -EINVAL;
+	}
+
+	/* status 0 : calibration is completed */
 	if (status != 1) {
 		pr_info("%s: tfa_cal to restore setting after calibration\n",
 			__func__);
 		cur_status = 0; /* done - changed to inactive */
-		tfa_restore_after_cal(0, status);
-		return -EINVAL;
+		tfa_restore_after_cal(-1, status); /* -1 : head device */
+		return size;
 	}
 	if (cur_status)
 		pr_info("%s: tfa_cal already configured\n", __func__);
@@ -527,7 +533,7 @@ static ssize_t config_store(struct device *dev,
 	pr_info("%s: tfa_cal failed to calibrate speaker\n", __func__);
 	cur_status = 0; /* done - changed to inactive */
 
-	return -EINVAL;
+	return size;
 }
 #endif // TFA_PLATFORM_QUALCOMM
 
