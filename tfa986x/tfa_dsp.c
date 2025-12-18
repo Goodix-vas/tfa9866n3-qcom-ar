@@ -1616,6 +1616,11 @@ int tfa_write_reg(struct tfa_device *tfa,
 	if (bf == -1) /* undefined bitfield */
 		return 0;
 
+	if (tfa == NULL) {
+		pr_info("%s: skip as tfa is NULL\n", __func__);
+		return 0;
+	}
+
 	err = reg_write(tfa, address, reg_value);
 	if (err)
 		return -err;
@@ -1632,6 +1637,11 @@ int tfa_read_reg(struct tfa_device *tfa, const uint16_t bf)
 
 	if (bf == -1) /* undefined bitfield */
 		return 0;
+
+	if (tfa == NULL) {
+		pr_info("%s: skip as tfa is NULL\n", __func__);
+		return 0;
+	}
 
 	err = reg_read(tfa, address, &regvalue);
 	if (err)

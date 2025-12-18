@@ -84,6 +84,7 @@ static DEFINE_MUTEX(probe_lock);
 static DEFINE_MUTEX(overlay_lock);
 static LIST_HEAD(tfa98xx_device_list);
 static int tfa98xx_device_count;
+static int tfa_probed_device_cnt = 0;
 static struct tfa98xx *tfa98xx_head_device;
 static int tfa98xx_sync_count;
 static int tfa98xx_monitor_count;
@@ -3168,7 +3169,8 @@ enum tfa98xx_error tfa98xx_write_register16(struct tfa_device *tfa,
 retry:
 	ret = regmap_write(tfa98xx->regmap, subaddress, value);
 	if (ret < 0) {
-		pr_warn("i2c error, retries left: %d\n", retries);
+		pr_warn("i2c write error at subaddress 0x%x, err %d, retries left: %d\n",
+			subaddress, ret, retries);
 
 		if (retries) {
 			retries--;
@@ -3219,8 +3221,8 @@ enum tfa98xx_error tfa98xx_read_register16(struct tfa_device *tfa,
 retry:
 	ret = regmap_read(tfa98xx->regmap, subaddress, &value);
 	if (ret < 0) {
-		pr_warn("i2c error at subaddress 0x%x, retries left: %d\n",
-			subaddress, retries);
+		pr_warn("i2c read error at subaddress 0x%x, err %d, retries left: %d\n",
+			subaddress, ret, retries);
 
 		if (retries) {
 			retries--;
@@ -3805,9 +3807,28 @@ static void tfa98xx_interrupt(struct work_struct *work)
 		= container_of(work, struct tfa98xx, interrupt_work.work);
 	struct tfa98xx *tfa98xx;
 	struct tfa_device *tfa;
-	int irq_gpio = tfa98xx0->irq_gpio;
+	int irq_gpio;
 	int value0 = 0, value3 = 0;
+	int dev_cnt = 0;
 
+#if defined(TFA_STEREO_NODE)
+	dev_cnt = 2;
+#else
+	dev_cnt = 1;
+#endif
+
+	if (tfa98xx0 == NULL || tfa98xx0->tfa == NULL) {
+		pr_info("%s: skip as tfa98xx is not ready\n", __func__);
+		return;
+	}
+
+	if (tfa_probed_device_cnt < dev_cnt) {
+		pr_info("%s: skip as tfa_probed_device_cnt %d\n",
+			__func__, tfa_probed_device_cnt);
+		return;
+	}
+
+	irq_gpio = tfa98xx0->irq_gpio;
 	pr_info("%s: triggered: dev %d\n",
 		__func__, tfa98xx0->tfa->dev_idx);
 
@@ -4285,6 +4306,8 @@ static int tfa98xx_probe(struct snd_soc_component *component)
 	dev_info(cdev, "tfa98xx codec registered (%s)\n",
 		tfa98xx->fw.name);
 
+	tfa_probed_device_cnt++;
+
 	return ret;
 }
 
@@ -4315,6 +4338,8 @@ static void tfa98xx_remove(struct snd_soc_component *component)
 			tfa_buffer_pool(tfa98xx->tfa,
 				index, 0, POOL_FREE);
 	}
+
+	tfa_probed_device_cnt--;
 }
 
 static const struct snd_soc_component_driver soc_component_dev_tfa98xx = {
@@ -6391,9 +6416,11 @@ static int tfa98xx_i2c_remove(struct i2c_client *i2c)
 		tfa98xx_container = NULL;
 	}
 
-	if (tfa98xx)
-		kfree(tfa98xx->tfa);
-	kfree(tfa98xx);
+	if (tfa98xx) {
+		if (tfa98xx->tfa)
+			kfree(tfa98xx->tfa);
+		kfree(tfa98xx);
+	}
 
 	i2c_set_clientdata(i2c, NULL);
 	mutex_unlock(&tfa98xx_mutex);
