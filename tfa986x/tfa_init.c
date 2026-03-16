@@ -465,7 +465,8 @@ static enum tfa98xx_error tfa986x_specific(struct tfa_device *tfa)
 		/* ----- generated code end   ----- */
 		break;
 
-	case 0x201a66:/**TFA9866 N3A1**/		
+	case 0x201a66:/**TFA9866 N3A1**/
+	case 0x202a66:/**TFA9866 N3Var**/
 		bf_value = tfa_get_bf(tfa, TFA9866_BF_SPARE_F0_15_10);
 		if (bf_value >= 0)
 			tfa_set_bf(tfa, TFA9866_BF_CS_KTEMP, (uint16_t)bf_value);
@@ -475,7 +476,7 @@ static enum tfa98xx_error tfa986x_specific(struct tfa_device *tfa)
 		reg_write(tfa, 0x00, 0xf201); //POR=0xf241
 		reg_write(tfa, 0x08, 0x009a); //POR=0x00d2
 		reg_write(tfa, 0x50, 0xc000); //POR=0x8000
-		reg_write(tfa, 0x54, 0x40e0); //POR=0x00e0
+		reg_write(tfa, 0x54, 0x50e0); //POR=0x00e0
 		reg_write(tfa, 0x62, 0x0666); //POR=0x06c6
 		reg_write(tfa, 0x63, 0x806d); //POR=0x80d4
 		reg_write(tfa, 0x65, 0x0c58); //POR=0x0458

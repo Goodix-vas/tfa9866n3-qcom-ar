@@ -889,6 +889,14 @@ tfa98xx_check_ic_rom_version(struct tfa_device *tfa,
 				| lsb_revid; /* full revid */
 			/* full revid */
 			if (devid != tfa->revid && revid != tfa->revid) {
+				/* TFA9866 N3Var is compatible to N3A1 CNT */
+				if (tfa->revid == 0x202a66) { /* HW : TFA9866 N3Var */
+					if (devid == 0x201a66 || revid == 0x201a66) { /* CNT : TFA9866 N3A1 */
+						pr_info("%s: TFA9866 N3Var container patch: 0x%08x:0x%08x\n",
+							__func__, revid, devid);
+						return TFA98XX_ERROR_OK;
+					}
+				}
 				pr_err("container patch and HW mismatch: expected: 0x%08x, actual 0x%08x\n",
 					tfa->revid, revid);
 				return TFA98XX_ERROR_NOT_SUPPORTED;

@@ -4009,8 +4009,13 @@ static int tfa98xx_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
 	case SND_SOC_DAIFMT_DSP_A:
+#if KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE
+		if ((fmt & SND_SOC_DAIFMT_MASTER_MASK)
+			!= SND_SOC_DAIFMT_CBC_CFC) {
+#else
 		if ((fmt & SND_SOC_DAIFMT_MASTER_MASK)
 			!= SND_SOC_DAIFMT_CBS_CFS) {
+#endif
 			dev_err(cdev, "Invalid Codec main mode\n");
 			return -EINVAL;
 		}
@@ -4162,12 +4167,12 @@ static int _tfa98xx_mute(struct tfa98xx *tfa98xx, int mute, int stream)
 		cancel_delayed_work_sync(&tfa98xx->monitor_work);
 
 		/* report the status if interrupt is not enabled */
+		/* Not necessary in the stop sequence
 		if (!gpio_is_valid(tfa98xx->irq_gpio)) {
 			mutex_lock(&tfa98xx->dsp_lock);
 			tfaxx_status(tfa98xx->tfa);
 			mutex_unlock(&tfa98xx->dsp_lock);
-		}
-
+		} */
 		_tfa98xx_stop(tfa98xx);
 	} else {
 		if (stream == SNDRV_PCM_STREAM_PLAYBACK)
@@ -4519,9 +4524,15 @@ static int tfa98xx_parse_inchannel_dt(struct device *dev,
 	return 0;
 }
 
+#if KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE
+static ssize_t tfa98xx_reg_write(struct file *filp, struct kobject *kobj,
+	const struct bin_attribute *bin_attr,
+	char *buf, loff_t off, size_t count)
+#else
 static ssize_t tfa98xx_reg_write(struct file *filp, struct kobject *kobj,
 	struct bin_attribute *bin_attr,
 	char *buf, loff_t off, size_t count)
+#endif
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
 	struct tfa98xx *tfa98xx = dev_get_drvdata(dev);
@@ -4538,9 +4549,15 @@ static ssize_t tfa98xx_reg_write(struct file *filp, struct kobject *kobj,
 	return 1;
 }
 
+#if KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE
+static ssize_t tfa98xx_rw_write(struct file *filp, struct kobject *kobj,
+	const struct bin_attribute *bin_attr,
+	char *buf, loff_t off, size_t count)
+#else
 static ssize_t tfa98xx_rw_write(struct file *filp, struct kobject *kobj,
 	struct bin_attribute *bin_attr,
 	char *buf, loff_t off, size_t count)
+#endif
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
 	struct tfa98xx *tfa98xx = dev_get_drvdata(dev);
@@ -4578,9 +4595,15 @@ retry:
 	return ((ret > 1) ? count : -EIO);
 }
 
+#if KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE
+static ssize_t tfa98xx_rw_read(struct file *filp, struct kobject *kobj,
+	const struct bin_attribute *bin_attr,
+	char *buf, loff_t off, size_t count)
+#else
 static ssize_t tfa98xx_rw_read(struct file *filp, struct kobject *kobj,
 	struct bin_attribute *bin_attr,
 	char *buf, loff_t off, size_t count)
+#endif
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
 	struct tfa98xx *tfa98xx = dev_get_drvdata(dev);
@@ -4628,9 +4651,15 @@ retry:
 	return ((ret > 1) ? count : 0);
 }
 
+#if KERNEL_VERSION(6, 17, 0) <= LINUX_VERSION_CODE
+static ssize_t tfa98xx_customer_read(struct file *filp, struct kobject *kobj,
+	const struct bin_attribute *bin_attr,
+	char *buf, loff_t off, size_t count)
+#else
 static ssize_t tfa98xx_customer_read(struct file *filp, struct kobject *kobj,
 	struct bin_attribute *bin_attr,
 	char *buf, loff_t off, size_t count)
+#endif
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
 	struct tfa98xx *tfa98xx = dev_get_drvdata(dev);
