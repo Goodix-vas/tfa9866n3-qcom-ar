@@ -4975,72 +4975,6 @@ static ssize_t tfa98xx_autocal_store(struct device *dev,
 	return count;
 }
 
-static ssize_t tfa98xx_reinit_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	struct tfa98xx *tfa98xx = dev_get_drvdata(dev);
-	struct tfa_device *tfa = NULL;
-	int count = 0, init_requests = -1;
-
-	tfa = tfa98xx->tfa;
-	if (!tfa)
-		return -ENODEV;
-	if (tfa->tfa_family == 0) {
-		pr_err("[0x%x] %s: system is not initialized: not probed yet!\n",
-			tfa98xx->i2c->addr, __func__);
-		return -EIO;
-	}
-
-	init_requests = tfa98xx_cnt_reload;
-
-	pr_debug("[0x%x] reinit : counter %d\n",
-		tfa98xx->i2c->addr, init_requests);
-	count = snprintf(buf, PAGE_SIZE, "reinit requested: %d\n",
-		init_requests);
-
-	return count;
-}
-
-static ssize_t tfa98xx_reinit_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct tfa98xx *tfa98xx = dev_get_drvdata(dev);
-	struct tfa_device *tfa = NULL;
-	int reinit = 0;
-
-	tfa = tfa98xx->tfa;
-	if (!tfa)
-		return -ENODEV;
-	if (tfa->tfa_family == 0) {
-		pr_err("[0x%x] %s: system is not initialized: not probed yet!\n",
-			tfa98xx->i2c->addr, __func__);
-		return -EIO;
-	}
-
-	/* check string length, and account for eol */
-	if (count < 1)
-		return -EINVAL;
-
-	if (!strncmp(buf, "1", 1))
-		reinit = 1;
-	else if (!strncmp(buf, "0", 1))
-		reinit = 0;
-	else {
-		pr_info("%s: reinit is triggered with %s!\n", __func__, buf);
-		return -EINVAL;
-	}
-
-	pr_info("%s: reinit < %d\n", __func__, reinit);
-
-	if (reinit) {
-		pr_info("%s: started reloading / reinitializing (counter %d)\n",
-			__func__, tfa98xx_cnt_reload + 1);
-		tfa98xx_set_cnt_reload(NULL, NULL);
-	}
-
-	return count;
-}
-
 static ssize_t tfa98xx_ramp_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -5284,15 +5218,6 @@ static struct device_attribute dev_attr_autocal = {
 	.store = tfa98xx_autocal_store,
 };
 
-static struct device_attribute dev_attr_reinit = {
-	.attr = {
-		.name = "reinit",
-		.mode = 0600,
-	},
-	.show = tfa98xx_reinit_show,
-	.store = tfa98xx_reinit_store,
-};
-
 static struct device_attribute dev_attr_ramp = {
 	.attr = {
 		.name = "ramp",
@@ -5383,6 +5308,12 @@ struct tfa_device *tfa98xx_get_tfa_device_from_channel(int channel)
 	return ntfa;
 }
 EXPORT_SYMBOL(tfa98xx_get_tfa_device_from_channel);
+
+void tfa98xx_reinit(void)
+{
+	tfa98xx_set_cnt_reload(NULL, NULL);
+}
+EXPORT_SYMBOL(tfa98xx_reinit);
 
 int tfa98xx_count_active_stream(int stream_flag)
 {
@@ -6255,10 +6186,6 @@ retry:
 	ret = device_create_file(&i2c->dev, &dev_attr_autocal);
 	if (ret)
 		dev_info(&i2c->dev, "error creating sysfs node, autocal\n");
-
-	ret = device_create_file(&i2c->dev, &dev_attr_reinit);
-	if (ret)
-		dev_info(&i2c->dev, "error creating sysfs node, reinit\n");
 
 	ret = device_create_file(&i2c->dev, &dev_attr_ramp);
 	if (ret)

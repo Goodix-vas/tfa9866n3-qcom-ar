@@ -61,6 +61,12 @@ static ssize_t config_store(struct device *dev,
 static DEVICE_ATTR(config, 0664, config_show, config_store);
 #endif
 
+static ssize_t reinit_show(struct device *dev,
+	struct device_attribute *attr, char *buf);
+static ssize_t reinit_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size);
+static DEVICE_ATTR(reinit, 0664, reinit_show, reinit_store);
+
 static struct attribute *tfa_cal_attr[] = {
 	&dev_attr_rdc.attr,
 	&dev_attr_temp.attr,
@@ -73,6 +79,7 @@ static struct attribute *tfa_cal_attr[] = {
 #if defined(TFA_PLATFORM_QUALCOMM)
 	&dev_attr_config.attr,
 #endif
+	&dev_attr_reinit.attr,
 	NULL,
 };
 
@@ -536,6 +543,70 @@ static ssize_t config_store(struct device *dev,
 	return size;
 }
 #endif // TFA_PLATFORM_QUALCOMM
+
+static int reinit_count = 0;
+static ssize_t reinit_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct tfa_device *tfa = NULL;
+	int count = 0;
+
+	tfa = tfa98xx_get_tfa_device_from_index(0);
+	if (!tfa)
+		return -ENODEV;
+	if (tfa->tfa_family == 0) {
+		pr_err("[0x%x] %s: system is not initialized: not probed yet!\n",
+			tfa->resp_address, __func__);
+		return -EIO;
+	}
+
+	pr_debug("[0x%x] reinit : reinit_count %d\n",
+		tfa->resp_address, reinit_count);
+	count = snprintf(buf, PAGE_SIZE, "reinit requested: %d\n",
+		reinit_count);
+
+	return count;
+}
+
+static ssize_t reinit_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct tfa_device *tfa = NULL;
+	int re_init = 0;
+
+	tfa = tfa98xx_get_tfa_device_from_index(0);
+	if (!tfa)
+		return -ENODEV;
+	if (tfa->tfa_family == 0) {
+		pr_err("[0x%x] %s: system is not initialized: not probed yet!\n",
+			tfa->resp_address, __func__);
+		return -EIO;
+	}
+
+	/* check string length, and account for eol */
+	if (count < 1)
+		return -EINVAL;
+
+	if (!strncmp(buf, "1", 1))
+		re_init = 1;
+	else if (!strncmp(buf, "0", 1))
+		re_init = 0;
+	else {
+		pr_info("%s: reinit is triggered with %s!\n", __func__, buf);
+		return -EINVAL;
+	}
+
+	pr_info("%s: reinit < %d\n", __func__, re_init);
+
+	if (re_init) {
+		pr_info("%s: started reloading / reinitializing (counter %d)\n",
+			__func__, reinit_count + 1);
+		tfa98xx_reinit();
+		reinit_count++;
+	}
+
+	return count;
+}
 
 int tfa98xx_cal_init(struct class *tfa_class)
 {

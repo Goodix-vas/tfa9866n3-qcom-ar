@@ -58,6 +58,7 @@ int tfa98xx_get_fssel(unsigned int rate);
 
 struct tfa_device *tfa98xx_get_tfa_device_from_index(int index);
 struct tfa_device *tfa98xx_get_tfa_device_from_channel(int channel);
+void tfa98xx_reinit(void);
 
 int tfa_get_channel_from_dev_idx(struct tfa_device *tfa, int dev_idx);
 int tfa_get_dev_idx_from_inchannel(int inchannel);
