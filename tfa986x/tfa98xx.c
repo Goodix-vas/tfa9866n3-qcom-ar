@@ -79,7 +79,8 @@ SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 /* Memory pool used for DSP messages */
 static struct kmem_cache *tfa98xx_cache;
 /* Mutex protected data */
-static DEFINE_MUTEX(tfa98xx_mutex);
+DEFINE_MUTEX(tfa98xx_mutex);
+EXPORT_SYMBOL(tfa98xx_mutex);
 static DEFINE_MUTEX(probe_lock);
 static DEFINE_MUTEX(overlay_lock);
 static LIST_HEAD(tfa98xx_device_list);
