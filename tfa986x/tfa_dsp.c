@@ -4389,7 +4389,6 @@ enum tfa_error tfa_dev_set_state(struct tfa_device *tfa,
 	enum tfa98xx_error ret = TFA98XX_ERROR_OK;
 	int loop = 50, ready = 0;
 	int count;
-	int get_state;
 
 	if (tfa == NULL) {
 		pr_err("%s: tfa is NULL\n",	__func__);
@@ -4502,9 +4501,7 @@ enum tfa_error tfa_dev_set_state(struct tfa_device *tfa,
 	}
 
 	/* tfa->state = state; */ /* to correct with real state of device */
-	get_state = tfa_dev_get_state(tfa);
-	if (get_state != state)
-		pr_debug("%s: set_state %d, get_state %d\n", __func__, state, get_state);
+	tfa_dev_get_state(tfa);
 
 	return tfa_error_ok;
 }
