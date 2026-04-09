@@ -812,7 +812,7 @@ static ssize_t tfa98xx_dbgfs_rpc_send(struct file *file,
 		return -ENODEV;
 	}
 
-	if (count == 0)
+	if (count < 2)
 		return 0;
 
 	if (tfa98xx->tfa->tfa_family == 0) {
@@ -1369,7 +1369,7 @@ static int tfa98xx_run_calibration(struct tfa98xx *tfa98xx0)
 	struct tfa_device *tfa;
 	enum tfa_error ret, cal_err = tfa_error_ok;
 	enum tfa98xx_error err = TFA98XX_ERROR_OK;
-	int idx, ndev = tfa98xx_device_count;
+	int idx, ndev;
 	int cal_profile = 0;
 	u16 temp_val = DEFAULT_REF_TEMP; /* default */
 	int temp_calflag = 0;
@@ -1379,6 +1379,10 @@ static int tfa98xx_run_calibration(struct tfa98xx *tfa98xx0)
 		return 0;
 
 	pr_info("%s: begin\n", __func__);
+
+	mutex_lock(&tfa98xx_mutex);
+	ndev = tfa98xx_device_count;
+	mutex_unlock(&tfa98xx_mutex);
 
 	if (tfa98xx0->pstream == 0) {
 		pr_info("[0x%x] %s: calibration is available only when channel is enabled!\n",
@@ -3096,6 +3100,7 @@ static const struct snd_soc_dapm_route tfa98xx_dapm_routes_stereo[] = {
 
 static void tfa98xx_add_widgets(struct tfa98xx *tfa98xx)
 {
+	int ret;
 	struct snd_soc_dapm_context *dapm
 		= snd_soc_component_get_dapm(tfa98xx->component);
 	unsigned int num_dapm_widgets
@@ -3119,10 +3124,14 @@ static void tfa98xx_add_widgets(struct tfa98xx *tfa98xx)
 		NULL,
 		0);
 
-	snd_soc_dapm_new_controls(dapm, widgets,
+	ret = snd_soc_dapm_new_controls(dapm, widgets,
 		ARRAY_SIZE(tfa98xx_dapm_widgets_common));
-	snd_soc_dapm_add_routes(dapm, tfa98xx_dapm_routes_common,
+	if (ret)
+		pr_warn("snd_soc_dapm_new_controls error\n");
+	ret = snd_soc_dapm_add_routes(dapm, tfa98xx_dapm_routes_common,
 		ARRAY_SIZE(tfa98xx_dapm_routes_common));
+	if (ret)
+		pr_warn("snd_soc_dapm_add_routes error\n");
 
 	snd_soc_dapm_ignore_suspend(dapm, "AIF IN");
 	snd_soc_dapm_ignore_suspend(dapm, "OUTL");
@@ -3130,12 +3139,16 @@ static void tfa98xx_add_widgets(struct tfa98xx *tfa98xx)
 	snd_soc_dapm_ignore_suspend(dapm, "AEC Loopback");
 
 	if (tfa98xx->flags & TFA98XX_FLAG_STEREO_DEVICE) {
-		snd_soc_dapm_new_controls
+		ret = snd_soc_dapm_new_controls
 			(dapm, tfa98xx_dapm_widgets_stereo,
 			ARRAY_SIZE(tfa98xx_dapm_widgets_stereo));
-		snd_soc_dapm_add_routes
+		if (ret)
+			pr_warn("snd_soc_dapm_new_controls error\n");
+		ret = snd_soc_dapm_add_routes
 			(dapm, tfa98xx_dapm_routes_stereo,
 			ARRAY_SIZE(tfa98xx_dapm_routes_stereo));
+		if (ret)
+			pr_warn("snd_soc_dapm_add_routes error\n");
 
 		snd_soc_dapm_ignore_suspend(dapm, "OUTR");
 	}
@@ -3682,7 +3695,7 @@ static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
 	static bool failed;
 	bool sync = false;
 	bool do_sync;
-	int active_device_count = tfa98xx_device_count;
+	int active_device_count;
 
 	if (tfa98xx->dsp_fw_state != TFA98XX_DSP_FW_OK) {
 		pr_debug("Skipping tfa_dev_start (no FW: %d)\n",
@@ -3697,6 +3710,10 @@ static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
 
 	mutex_lock(&tfa98xx->dsp_lock);
 	pr_info("%s: ...\n", __func__);
+
+	mutex_lock(&tfa98xx_mutex);
+	active_device_count = tfa98xx_device_count;
+	mutex_unlock(&tfa98xx_mutex);
 
 	tfa98xx->dsp_init = TFA98XX_DSP_INIT_PENDING;
 
@@ -4090,6 +4107,7 @@ static int tfa98xx_mute(struct snd_soc_dai *dai, int mute, int stream)
 static int _tfa98xx_mute(struct tfa98xx *tfa98xx, int mute, int stream)
 {
 	if (mute) {
+		int active_device_count;
 		/* stop DSP only when both playback and capture streams
 		 * are deactivated
 		 */
@@ -4109,14 +4127,18 @@ static int _tfa98xx_mute(struct tfa98xx *tfa98xx, int mute, int stream)
 			tfa98xx->cstream = 0;
 		}
 
+		mutex_lock(&tfa98xx_mutex);
+		active_device_count = tfa98xx_device_count;
+		mutex_unlock(&tfa98xx_mutex);
+
 		mutex_lock(&tfa98xx->dsp_lock);
 		pr_info("mute:%d dev[%d] stream %d [pstream %d, cstream %d]\n", mute,
 			tfa98xx->tfa->dev_idx, stream, tfa98xx->pstream, tfa98xx->cstream);
 
 		if ((tfa98xx_count_active_stream(BIT_PSTREAM)
-			== tfa98xx_device_count)
+			== active_device_count)
 			&& (tfa98xx_count_active_stream(BIT_CSTREAM)
-			== tfa98xx_device_count)) /* at first mute of either */
+			== active_device_count)) /* at first mute of either */
 			if (tfa98xx->tfa->blackbox_enable) {
 				tfa98xx->tfa->interrupt_enable[0]
 					&= ~TFA_BF_MSK(TFA9866_BF_IENOCLK);
@@ -4162,12 +4184,12 @@ static int _tfa98xx_mute(struct tfa98xx *tfa98xx, int mute, int stream)
 		cancel_delayed_work_sync(&tfa98xx->monitor_work);
 
 		/* report the status if interrupt is not enabled */
+		/* Not necessary in the stop sequence
 		if (!gpio_is_valid(tfa98xx->irq_gpio)) {
 			mutex_lock(&tfa98xx->dsp_lock);
 			tfaxx_status(tfa98xx->tfa);
 			mutex_unlock(&tfa98xx->dsp_lock);
-		}
-
+		} */
 		_tfa98xx_stop(tfa98xx);
 	} else {
 		if (stream == SNDRV_PCM_STREAM_PLAYBACK)
