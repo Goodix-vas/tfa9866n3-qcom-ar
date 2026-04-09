@@ -24,8 +24,6 @@ static void tfa_overwrite_temp(struct tfa_device *tfa, char *data_buf);
 /* module globals */
 static uint8_t gresp_address; /* in case of setting with option */
 
-extern struct mutex tfa98xx_mutex;
-
 /*
  * check the container file
  */
@@ -98,30 +96,19 @@ void tfa_cont_show_header(struct tfa_header *hdr)
 struct tfa_device_list *tfa_cont_get_dev_list(struct tfa_container *cont,
 	int dev_idx)
 {
-	uint8_t *base = NULL;
-	struct tfa_device_list *list = NULL;
+	uint8_t *base = (uint8_t *)cont;
 
-	mutex_lock(&tfa98xx_mutex);
-	if (cont == NULL) {
-		mutex_unlock(&tfa98xx_mutex);
+	if (cont == NULL)
 		return NULL;
-	}
 
-	if ((dev_idx < 0) || (dev_idx >= cont->ndev)) {
-		mutex_unlock(&tfa98xx_mutex);
+	if ((dev_idx < 0) || (dev_idx >= cont->ndev))
 		return NULL;
-	}
 
-	if (cont->index[dev_idx].type != dsc_device) {
-		mutex_unlock(&tfa98xx_mutex);
+	if (cont->index[dev_idx].type != dsc_device)
 		return NULL;
-	}
 
-	base = (uint8_t *)cont;
 	base += cont->index[dev_idx].offset;
-	list = (struct tfa_device_list *)base;
-	mutex_unlock(&tfa98xx_mutex);
-	return list;
+	return (struct tfa_device_list *)base;
 }
 
 /*
