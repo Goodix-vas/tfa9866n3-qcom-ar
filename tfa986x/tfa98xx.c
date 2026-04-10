@@ -79,10 +79,11 @@ SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 /* Memory pool used for DSP messages */
 static struct kmem_cache *tfa98xx_cache;
 /* Mutex protected data */
-DEFINE_MUTEX(tfa98xx_mutex);
-EXPORT_SYMBOL(tfa98xx_mutex);
+static DEFINE_MUTEX(tfa98xx_mutex);
 static DEFINE_MUTEX(probe_lock);
 static DEFINE_MUTEX(overlay_lock);
+DEFINE_MUTEX(cnt_lock);
+EXPORT_SYMBOL(cnt_lock);
 static LIST_HEAD(tfa98xx_device_list);
 static int tfa98xx_device_count;
 static int tfa_probed_device_cnt = 0;
@@ -2681,10 +2682,10 @@ static int tfa98xx_set_cnt_reload(struct snd_kcontrol *kcontrol,
 			return 1; /* do nothing */
 
 	/* free previously loaded one */
-	mutex_lock(&tfa98xx_mutex);
+	mutex_lock(&cnt_lock);
 	kfree(tfa98xx_container);
 	tfa98xx_container = NULL;
-	mutex_unlock(&tfa98xx_mutex);
+	mutex_unlock(&cnt_lock);
 
 	list_for_each_entry(tfa98xx, &tfa98xx_device_list, list) {
 		mutex_lock(&probe_lock);
