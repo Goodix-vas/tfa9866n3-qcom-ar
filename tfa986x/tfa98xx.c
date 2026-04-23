@@ -3371,11 +3371,11 @@ static void tfa98xx_container_loaded
 
 	pr_debug("loaded %s - size: %zu\n", fw_name, cont->size);
 
-	mutex_lock(&tfa98xx_mutex);
+	mutex_lock(&cnt_lock);
 	if (tfa98xx_container == NULL) {
 		container = kzalloc(cont->size, GFP_KERNEL);
 		if (container == NULL) {
-			mutex_unlock(&tfa98xx_mutex);
+			mutex_unlock(&cnt_lock);
 			release_firmware(cont);
 			pr_err("Error allocating memory\n");
 			tfa98xx->dsp_fw_state = TFA98XX_DSP_FW_FAIL;
@@ -3397,7 +3397,7 @@ static void tfa98xx_container_loaded
 
 		tfa_err = tfa_load_cnt(container, container_size);
 		if (tfa_err != tfa_error_ok) {
-			mutex_unlock(&tfa98xx_mutex);
+			mutex_unlock(&cnt_lock);
 			kfree(container);
 			dev_err(tfa98xx->dev, "Cannot load container file, aborting\n");
 			tfa98xx->dsp_fw_state = TFA98XX_DSP_FW_FAIL;
@@ -3411,7 +3411,7 @@ static void tfa98xx_container_loaded
 		container = tfa98xx_container;
 		release_firmware(cont);
 	}
-	mutex_unlock(&tfa98xx_mutex);
+	mutex_unlock(&cnt_lock);
 
 	tfa98xx->tfa->cnt = container;
 
@@ -3710,13 +3710,13 @@ static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
 		return;
 	}
 
-	mutex_lock(&tfa98xx->dsp_lock);
 	pr_info("%s: ...\n", __func__);
 
 	mutex_lock(&tfa98xx_mutex);
 	active_device_count = tfa98xx_device_count;
 	mutex_unlock(&tfa98xx_mutex);
 
+	mutex_lock(&tfa98xx->dsp_lock);
 	tfa98xx->dsp_init = TFA98XX_DSP_INIT_PENDING;
 
 	/* directly try to start DSP */
@@ -6363,8 +6363,10 @@ static int tfa98xx_i2c_remove(struct i2c_client *i2c)
 	list_del(&tfa98xx->list);
 	tfa98xx_device_count--;
 	if (tfa98xx_device_count == 0) {
+		mutex_lock(&cnt_lock);
 		kfree(tfa98xx_container);
 		tfa98xx_container = NULL;
+		mutex_unlock(&cnt_lock);
 	}
 
 	if (tfa98xx) {
