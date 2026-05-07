@@ -3637,6 +3637,11 @@ enum tfa_error tfa_dev_stop(struct tfa_device *tfa)
 	pr_info("Stopping device [%s]\n",
 		tfa_cont_device_name(tfa->cnt, tfa->dev_idx));
 
+	/* disable interrupts */
+	reg_write(tfa, TFA98XX_INTERRUPT_ENABLE_REG, 0);
+	/* clear all active interrupts */
+	reg_write(tfa, TFA98XX_INTERRUPT_IN_REG, 0xffff);
+
 	/* mute */
 	ramp_steps = tfa->ramp_steps;
 	tfa->ramp_steps = RAMPDOWN_SHORT;
