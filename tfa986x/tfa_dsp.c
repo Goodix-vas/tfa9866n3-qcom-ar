@@ -3627,7 +3627,6 @@ enum tfa_error tfa_dev_stop(struct tfa_device *tfa)
 	enum tfa_error ret = tfa_error_ok;
 	enum tfa98xx_error err = TFA98XX_ERROR_OK;
 	int ramp_steps;
-	int manstate;
 
 	if (tfa == NULL) {
 		pr_err("%s: tfa is NULL\n",	__func__);
@@ -3637,6 +3636,11 @@ enum tfa_error tfa_dev_stop(struct tfa_device *tfa)
 
 	pr_info("Stopping device [%s]\n",
 		tfa_cont_device_name(tfa->cnt, tfa->dev_idx));
+
+	/* disable interrupts */
+	reg_write(tfa, TFA98XX_INTERRUPT_ENABLE_REG, 0);
+	/* clear all active interrupts */
+	reg_write(tfa, TFA98XX_INTERRUPT_IN_REG, 0xffff);
 
 	/* mute */
 	ramp_steps = tfa->ramp_steps;
@@ -3655,19 +3659,6 @@ enum tfa_error tfa_dev_stop(struct tfa_device *tfa)
 		goto tfa_dev_stop_exit;
 
 	msleep_interruptible(BUSLOAD_INTERVAL);
-
-	manstate = tfa_get_manstate(tfa);
-	if (manstate != 0) { /* if NOT in power_down state */
-		int manstate2;
-		/* force to enter power_down state */
-		TFA_SET_BF_VOLATILE(tfa, MANSCONF, 0);
-		msleep_interruptible(2);
-		manstate2 = tfa_get_manstate(tfa);
-		pr_info("%s: manstate transition %d --> %d\n",
-			__func__, manstate, manstate2);
-		/* clear all active interrupts */
-		reg_write(tfa, TFA98XX_INTERRUPT_IN_REG, 0xffff);
-	}
 
 	/* CHECK: only once after buffering fully */
 	/* at last device only: to flush buffer */
