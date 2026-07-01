@@ -50,8 +50,8 @@
 #define TFA_NODE "MONO"
 #endif
 
-#define I2C_RETRIES 3
-#define I2C_1ST_ACCESS_RETRIES 10
+#define I2C_RETRIES 50
+#define I2C_1ST_ACCESS_RETRIES 50
 #define I2C_RETRY_DELAY 5 /* ms */
 #define TFA_RESET_DELAY 5 /* ms */
 #define VDD_DEFER_LATENCY 10 /* ms */
@@ -3189,11 +3189,12 @@ retry:
 
 		if (retries) {
 			retries--;
+			if (tfa_i2c_err_callback != NULL)
+				tfa_i2c_err_callback((int)tfa98xx->i2c->addr,
+					ret, 1, I2C_RETRIES - retries);
 			msleep(I2C_RETRY_DELAY);
 			goto retry;
 		}
-		if (tfa_i2c_err_callback != NULL)
-			tfa_i2c_err_callback((int)tfa98xx->i2c->addr, ret, 1, 1);
 
 		return TFA98XX_ERROR_FAIL;
 	}
@@ -3240,11 +3241,12 @@ retry:
 
 		if (retries) {
 			retries--;
+			if (tfa_i2c_err_callback != NULL)
+				tfa_i2c_err_callback((int)tfa98xx->i2c->addr,
+					ret, 0, I2C_RETRIES - retries);
 			msleep(I2C_RETRY_DELAY);
 			goto retry;
 		}
-		if (tfa_i2c_err_callback != NULL)
-			tfa_i2c_err_callback((int)tfa98xx->i2c->addr, ret, 0, 1);
 
 		return TFA98XX_ERROR_FAIL;
 	}
