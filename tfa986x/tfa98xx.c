@@ -3827,8 +3827,6 @@ static void tfa98xx_interrupt(struct work_struct *work)
 	int irq_gpio;
 	int value0 = 0, value3 = 0;
 	int dev_cnt = 0;
-	int ret = 0;
-	unsigned int reg_cont0, reg_flag1, reg_flag2, reg_int_out;
 
 #if defined(TFA_STEREO_NODE)
 	dev_cnt = 2;
@@ -3853,33 +3851,14 @@ static void tfa98xx_interrupt(struct work_struct *work)
 
 	list_for_each_entry(tfa98xx, &tfa98xx_device_list, list) {
 		if (tfa98xx->tfa == NULL) {
-			pr_err("[0x%x] device is not available\n",
+			pr_debug("[0x%x] device is not available\n",
 				tfa98xx->i2c->addr);
 			continue;
 		}
-		if (irq_gpio != tfa98xx->irq_gpio) { /* IRQ not shared */
-			pr_err("[0x%x] %s: IRQ not shared!\n", tfa98xx->i2c->addr, __func__);
+		if (irq_gpio != tfa98xx->irq_gpio) /* IRQ not shared */
 			continue;
-		}
 
 		tfa = tfa98xx->tfa;
-
-		ret = regmap_read(tfa98xx->regmap, TFA98XX_SYS_CONTROL0, &reg_cont0);
-		if (ret < 0)
-			pr_err("[0x%x] %s: reg_cont0 read fail!\n", tfa98xx->i2c->addr, __func__);
-		ret = regmap_read(tfa98xx->regmap, TFA98XX_STATUS_FLAGS1, &reg_flag1);
-		if (ret < 0)
-			pr_err("[0x%x] %s: reg_flag1 read fail!\n", tfa98xx->i2c->addr, __func__);
-		ret = regmap_read(tfa98xx->regmap, TFA98XX_STATUS_FLAGS2, &reg_flag2);
-		if (ret < 0)
-			pr_err("[0x%x] %s: reg_flag2 read fail!\n", tfa98xx->i2c->addr, __func__);
-		ret = regmap_read(tfa98xx->regmap, TFA98XX_INTERRUPT_OUT_REG, &reg_int_out);
-		if (ret < 0)
-			pr_err("[0x%x] %s: reg_int_out read fail!\n", tfa98xx->i2c->addr, __func__);
-		pr_info("%s: [%d] regs info. : 0x%04x, 0x%04x, 0x%04x, 0x%04x, 0x%04x\n",
-					__func__, tfa->dev_idx, reg_cont0, reg_flag1,
-					reg_flag2, reg_int_out, tfa->interrupt_enable[0]);
-
 		value0 = TFAxx_READ_REG(tfa, VDDS);
 		value3 = TFAxx_READ_REG(tfa, BODNOK);
 		pr_info("%s: [%d] status_flags: 0x%04x, 0x%04x\n",
