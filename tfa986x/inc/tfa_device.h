@@ -154,9 +154,7 @@ struct tfa_device {
 	unsigned char support_tcoef;
 	enum tfa98xx_dai_bitmap daimap;
 	int mohm[3];
-#if defined(TFA_PLATFORM_QUALCOMM)
 	int dummy_cal;
-#endif
 	struct tfa_device_ops dev_ops;
 	uint16_t interrupt_enable[3];
 	uint16_t interrupt_status[3];
@@ -215,6 +213,7 @@ struct tfa_device {
 	int inchannel;
 	int ipcid[3];
 	int send_set_logger;
+	int cal_channel;
 };
 
 #define TFA_INCHANNEL(idx) \

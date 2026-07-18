@@ -43,6 +43,16 @@
 #define TFA98XX_PROBE_STATE_DAI_INIT_SUCCESS	(1 << 1)
 #define TFA98XX_PROBE_STATE_CNT_LOAD_SUCCESS	(1 << 2)
 
+#define TFADSP_FLAG_CALIBRATE_DONE      (1 << 0)
+#define TFADSP_FLAG_DAMAGED_SPEAKER_P   (1 << 1)
+#define TFADSP_FLAG_DAMAGED_SPEAKER_S   (1 << 2)
+#define TFADSP_FLAG_DAMAGED_VSENSE_P    (1 << 3)
+#define TFADSP_FLAG_DAMAGED_VSENSE_S    (1 << 4)
+#define TFADSP_FLAG_DAMAGED_FRES_P      (1 << 5)
+#define TFADSP_FLAG_DAMAGED_FRES_S      (1 << 6)
+#define TFADSP_FLAG_PILOT_TONE_MUTED_P  (1 << 7)
+#define TFADSP_FLAG_PILOT_TONE_MUTED_S  (1 << 8)
+
 /* DSP init status */
 enum tfa98xx_dsp_init_state {
 	TFA98XX_DSP_INIT_STOPPED,	/* DSP not running */

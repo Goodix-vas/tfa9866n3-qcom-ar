@@ -61,6 +61,12 @@ static ssize_t config_store(struct device *dev,
 static DEVICE_ATTR(config, 0664, config_show, config_store);
 #endif
 
+static ssize_t reinit_show(struct device *dev,
+	struct device_attribute *attr, char *buf);
+static ssize_t reinit_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size);
+static DEVICE_ATTR(reinit, 0664, reinit_show, reinit_store);
+
 static struct attribute *tfa_cal_attr[] = {
 	&dev_attr_rdc.attr,
 	&dev_attr_temp.attr,
@@ -73,6 +79,7 @@ static struct attribute *tfa_cal_attr[] = {
 #if defined(TFA_PLATFORM_QUALCOMM)
 	&dev_attr_config.attr,
 #endif
+	&dev_attr_reinit.attr,
 	NULL,
 };
 
@@ -347,34 +354,32 @@ static ssize_t status_store(struct device *dev,
 	int ret = 0, status;
 
 	/* Compare string, excluding the trailing \0 and the potentials eol */
-	if (!sysfs_streq(buf, "1") && !sysfs_streq(buf, "0")) {
+	if (!sysfs_streq(buf, "1") && !sysfs_streq(buf, "0")
+		&& !sysfs_streq(buf, "2") && !sysfs_streq(buf, "3")) {
 		pr_info("%s: tfa_cal invalid value to start calibration\n",
 			__func__);
 		return -EINVAL;
 	}
 
+	/* status: 1=all, 2=top, 3=bottom */
 	ret = kstrtou32(buf, 10, &status);
 	if (!status) {
 		pr_info("%s: do nothing\n", __func__);
 		return -EINVAL;
 	}
-	if (cur_status) {
-		pr_info("%s: tfa_cal prior calibration still runs\n", __func__);
-		return -EINVAL;
-	}
+	if (cur_status)
+		pr_info("%s: tfa_cal prior calibration still runs or failed\n", __func__);
 
-	pr_info("%s: tfa_cal begin\n", __func__);
+	pr_info("%s: tfa_cal begin, status=%d\n", __func__, status);
 
 	cur_status = status; /* run - changed to active */
 
 	memset(cal_data, 0, sizeof(struct tfa_cal) * MAX_HANDLES);
 
 	/* run calibration */
-	ret = tfa_run_cal(0, &value);
-	if (ret == TFA98XX_ERROR_NOT_OPEN)
-		return -EINVAL; /* unused device */
+	ret = tfa_run_cal(status, &value);
 	if (ret) {
-		pr_info("%s: tfa_cal failed to calibrate speaker\n", __func__);
+		pr_err("%s: tfa_cal failed to calibrate speaker, %d\n", __func__, ret);
 		return -EINVAL;
 	}
 
@@ -389,6 +394,11 @@ static ssize_t status_store(struct device *dev,
 		return -EINVAL;
 
 	for (idx = 0; idx < ndev; idx++) {
+		if (idx == 0 && status == SPK_CH) /* only SPK cal */
+			continue;
+		if (idx == 1 && status == RCV_CH) /* only RCV cal */
+			continue;
+
 		/* read data to store */
 		ret = tfa_get_cal_data(idx, &value);
 		if (ret) {
@@ -522,7 +532,7 @@ static ssize_t config_store(struct device *dev,
 	memset(cal_data, 0, sizeof(struct tfa_cal) * MAX_HANDLES);
 
 	/* configure registers for calibration */
-	ret = tfa_run_cal(0, NULL);
+	ret = tfa_run_cal(1, NULL);
 	if (ret != TFA98XX_ERROR_FAIL) {
 		pr_info("%s: tfa_cal configured\n", __func__);
 		cur_status = status; /* run - changed to active */
@@ -536,6 +546,70 @@ static ssize_t config_store(struct device *dev,
 	return size;
 }
 #endif // TFA_PLATFORM_QUALCOMM
+
+static int reinit_count = 0;
+static ssize_t reinit_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct tfa_device *tfa = NULL;
+	int count = 0;
+
+	tfa = tfa98xx_get_tfa_device_from_index(0);
+	if (!tfa)
+		return -ENODEV;
+	if (tfa->tfa_family == 0) {
+		pr_err("[0x%x] %s: system is not initialized: not probed yet!\n",
+			tfa->resp_address, __func__);
+		return -EIO;
+	}
+
+	pr_debug("[0x%x] reinit : reinit_count %d\n",
+		tfa->resp_address, reinit_count);
+	count = snprintf(buf, PAGE_SIZE, "reinit requested: %d\n",
+		reinit_count);
+
+	return count;
+}
+
+static ssize_t reinit_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct tfa_device *tfa = NULL;
+	int re_init = 0;
+
+	tfa = tfa98xx_get_tfa_device_from_index(0);
+	if (!tfa)
+		return -ENODEV;
+	if (tfa->tfa_family == 0) {
+		pr_err("[0x%x] %s: system is not initialized: not probed yet!\n",
+			tfa->resp_address, __func__);
+		return -EIO;
+	}
+
+	/* check string length, and account for eol */
+	if (count < 1)
+		return -EINVAL;
+
+	if (!strncmp(buf, "1", 1))
+		re_init = 1;
+	else if (!strncmp(buf, "0", 1))
+		re_init = 0;
+	else {
+		pr_info("%s: reinit is triggered with %s!\n", __func__, buf);
+		return -EINVAL;
+	}
+
+	pr_info("%s: reinit < %d\n", __func__, re_init);
+
+	if (re_init) {
+		pr_info("%s: started reloading / reinitializing (counter %d)\n",
+			__func__, reinit_count + 1);
+		tfa98xx_reinit();
+		reinit_count++;
+	}
+
+	return count;
+}
 
 int tfa98xx_cal_init(struct class *tfa_class)
 {

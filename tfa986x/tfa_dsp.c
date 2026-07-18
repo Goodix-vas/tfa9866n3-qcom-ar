@@ -285,6 +285,8 @@ int tfa_irq_report(struct tfa_device *tfa)
 	/* get the saved mask */
 	irqmask = tfa->interrupt_enable[0];
 	activemask = irqmask & irqstatus;
+	pr_info("%s: irqmask 0x%04x, irqstatus 0x%04x\n", __func__,
+		irqmask, irqstatus);
 
 	for (irq = 0; irq < tfa->irq_max; irq++)
 		if (activemask & (1 << irq)) {
@@ -890,7 +892,7 @@ tfa98xx_check_ic_rom_version(struct tfa_device *tfa,
 			/* full revid */
 			if (devid != tfa->revid && revid != tfa->revid) {
 				/* TFA9866 N3Var is compatible to N3A1 CNT */
-				if (tfa->revid == 0x202a66) { /* HW : TFA9866 N3Var */
+				if (tfa->revid == 0x202a66) { /* HW : TFA9866 N3Var = N3A2(DEVREV=34) */
 					if (devid == 0x201a66 || revid == 0x201a66) { /* CNT : TFA9866 N3A1 */
 						pr_info("%s: TFA9866 N3Var container patch: 0x%08x:0x%08x\n",
 							__func__, revid, devid);
@@ -1428,6 +1430,7 @@ enum tfa98xx_error tfa98xx_powerdown(struct tfa_device *tfa, int powerdown)
 	error = TFA_SET_BF(tfa, PWDN, (uint16_t)powerdown);
 
 	if (powerdown) {
+		TFA_SET_BF_VOLATILE(tfa, MANSCONF, 0);
 		/* Workaround for ticket PLMA5337 */
 		if (tfa->tfa_family == 2)
 			TFA_SET_BF_VOLATILE(tfa, AMPE, 0);
@@ -2832,7 +2835,6 @@ enum tfa98xx_error tfa_wait_cal(struct tfa_device *tfa)
 {
 	enum tfa98xx_error cal_err = TFA98XX_ERROR_OK;
 	int calibration_done = 0;
-	enum tfa98xx_error err = TFA98XX_ERROR_OK;
 	struct tfa_device *ntfa;
 	int i;
 
@@ -2842,8 +2844,8 @@ enum tfa98xx_error tfa_wait_cal(struct tfa_device *tfa)
 		return cal_err;
 	}
 
-	pr_info("%s: [%d] triggered\n",
-		__func__, tfa->dev_idx);
+	pr_info("%s: [%d] triggered, cal_channle %d\n",
+		__func__, tfa->dev_idx, tfa->cal_channel);
 
 	cal_err = tfa_run_wait_calibration(tfa, &calibration_done);
 	if (cal_err != TFA98XX_ERROR_OK || calibration_done == 0) {
@@ -2856,6 +2858,11 @@ enum tfa98xx_error tfa_wait_cal(struct tfa_device *tfa)
 			if (!tfa_is_active_device(ntfa))
 				continue;
 
+			if (ntfa->dev_idx == 0 && ntfa->cal_channel == SPK_CH)
+				continue;
+			if (ntfa->dev_idx == 1 && ntfa->cal_channel == RCV_CH)
+				continue;
+
 			tfaxx_status(ntfa);
 		}
 	}
@@ -2866,14 +2873,17 @@ enum tfa98xx_error tfa_wait_cal(struct tfa_device *tfa)
 		if (!tfa_is_active_device(ntfa))
 			continue;
 
+		if (ntfa->dev_idx == 0 && ntfa->cal_channel == SPK_CH)
+			continue;
+		if (ntfa->dev_idx == 1 && ntfa->cal_channel == RCV_CH)
+			continue;
+
 		if (ntfa->spkr_damaged)
 			continue;
 
 		pr_debug("%s: [%d] process calibration data\n",
 			__func__, ntfa->dev_idx);
-		err = tfa_dsp_get_calibration_impedance(ntfa);
-		if (err != TFA98XX_ERROR_OK)
-			PRINT_ASSERT(err);
+		tfa_dsp_get_calibration_impedance(ntfa);
 	}
 
 	tfa_restore_after_cal(0, cal_err);
@@ -2978,13 +2988,13 @@ void tfa_restore_after_cal(int index, int cal_err)
 
 		if (ntfa == NULL || !tfa_is_active_device(ntfa))
 			continue;
-
+		/*
+		// not required this handling
 		if (cal_err != TFA98XX_ERROR_OK
 			|| ntfa->spkr_damaged) {
 			tfa_handle_damaged_speakers(ntfa);
 			continue;
-		}
-
+		} */
 		tfa_set_spkgain(ntfa);
 		/* force UNMUTE after processing calibration */
 		pr_debug("%s: [%d] force UNMUTE after processing calibration\n",
@@ -3010,6 +3020,11 @@ int tfa_run_damage_check(struct tfa_device *tfa,
 		ntfa = tfa98xx_get_tfa_device_from_channel(i);
 
 		if (ntfa == NULL || !tfa_is_active_device(ntfa))
+			continue;
+
+		if (ntfa->cal_channel == RCV_CH && ntfa->dev_idx == 1)
+			continue;
+		if (ntfa->cal_channel == SPK_CH && ntfa->dev_idx == 0)
 			continue;
 
 		damage_event
@@ -3172,8 +3187,14 @@ tfa_run_wait_calibration(struct tfa_device *tfa, int *calibrate_done)
 	pr_info("%s: speaker damage flag 0x%06x:0x%06x\n",
 		__func__, fw_status[0], fw_status[1]);
 
-	if ((fw_status[1] & 0x6) == 0)
+	if ((fw_status[1] & 0x6) == 0) {
+		for (i = 0; i < tfa->dev_count; i++) {
+			ntfa = tfa98xx_get_tfa_device_from_channel(i);
+			if (ntfa != NULL)
+				ntfa->is_calibrating = 0;
+		}
 		return err;
+	}
 
 	for (i = 0; i < tfa->dev_count; i++) {
 		ntfa = tfa98xx_get_tfa_device_from_channel(i);
@@ -3315,6 +3336,45 @@ int tfa_is_active_device(struct tfa_device *tfa)
 	return is_active;
 }
 
+char* tfa_get_ic_name (struct tfa_device *tfa)
+{
+	char *tfa9866_ic_name = NULL;
+
+	switch (tfa->revid) {
+		case 0x201a66:
+			tfa9866_ic_name = "TFA9866_N3A1";
+			break;
+		case 0x202a66:
+			tfa9866_ic_name = "TFA9866_N3A2";
+			break;
+		case 0x203a66:
+			tfa9866_ic_name = "TFA9866_N3A3";
+			break;
+		case 0x200a66:
+			tfa9866_ic_name = "TFA9866_N3A0";
+			break;
+		case 0x100a66:
+			tfa9866_ic_name = "TFA9866_N2A0";
+			break;
+		case 0x100b66:
+			tfa9866_ic_name = "TFA9866_N2B0";
+			break;
+		case 0x1a66:
+			tfa9866_ic_name = "TFA9866_N1A1";
+			break;
+		case 0x2a66:
+			tfa9866_ic_name = "TFA9866_N1A2";
+			break;
+		case 0x3a66:
+			tfa9866_ic_name = "TFA9866_N1A3";
+			break;
+		default:
+			break;
+	}
+	
+	return tfa9866_ic_name;
+}
+
 /*
  * tfa_dev_start will only do the basics:
  * Going from powerdown to operating or a profile switch.
@@ -3331,6 +3391,7 @@ enum tfa_error tfa_dev_start(struct tfa_device *tfa,
 	int forced = 0;
 	int tfa_state_before, tfa_state;
 	int cal_ready = 1;
+	char *tfa_ic_name;
 
 	if (tfa == NULL) {
 		pr_err("%s: tfa is NULL\n",	__func__);
@@ -3340,15 +3401,15 @@ enum tfa_error tfa_dev_start(struct tfa_device *tfa,
 
 	tfa98xx_log_start_cnt++;
 
-	pr_debug("%s: tfa98xx_log_tfa_family=%d,",
-		__func__, tfa->tfa_family);
-	pr_debug("%s: tfa98xx_log_revision=0x%x,",
-		__func__, tfa->revid & 0xff);
-	pr_debug("%s: tfa98xx_log_subrevision=0x%x,",
-		__func__, (tfa->revid >> 8) & 0xffff);
+	tfa_ic_name = tfa_get_ic_name(tfa);
+	if (tfa_ic_name != NULL)
+		pr_debug("%s: tfa[%d] IC name = %s\n", __func__, tfa->dev_idx, tfa_ic_name);
+	else
+		pr_err("%s: tfa[%d] IC name = 0x%x\n", __func__, tfa->dev_idx, tfa->revid);
+
 	pr_debug("%s: tfa98xx_log_i2c_responder_address=0x%x,",
 		__func__, tfa->resp_address);
-	pr_info("%s: tfa98xx_log_start_cnt=%d next_profile %d\n",
+	pr_debug("%s: tfa98xx_log_start_cnt=%d next_profile %d\n",
 		__func__, tfa98xx_log_start_cnt, next_profile);
 
 	tfa->next_profile = next_profile;
@@ -3861,8 +3922,6 @@ static enum tfa98xx_error tfa_process_re25(struct tfa_device *tfa)
 	int nr_bytes, i, spkr_count = 0, cal_idx = 0;
 	int scaled_data;
 	int channel;
-	int tries = 0;
-	int readback = -1;
 
 	if (tfa == NULL) {
 		pr_err("%s: tfa is NULL\n",	__func__);
@@ -3926,6 +3985,7 @@ static enum tfa98xx_error tfa_process_re25(struct tfa_device *tfa)
 			pr_err("%s: wrong calibration! (damaged speaker)\n",
 				__func__);
 			tfa->spkr_damaged = 1;
+			return TFA98XX_ERROR_BAD_PARAMETER;
 		}
 	} else {
 		pr_err("%s: tfa_dsp_cmd_id_write_read is failed, err=%d\n",
@@ -3938,115 +3998,21 @@ static enum tfa98xx_error tfa_process_re25(struct tfa_device *tfa)
 
 			tfa->mohm[cal_idx] = -1;
 		}
-
-		return TFA98XX_ERROR_BAD_PARAMETER;
+		return TFA98XX_ERROR_RPC_CALIB_FAILED;
 	}
 
-	error = tfa_calibration_range_check(tfa,
-		channel, tfa->mohm[cal_idx]);
-	if (error != TFA98XX_ERROR_OK) {
-		pr_err("%s: calibration data is out of range: device %d\n",
-			__func__, tfa->dev_idx);
-		return TFA98XX_ERROR_BAD_PARAMETER;
-	}
-
-	if (!tfa->is_probus_device)
-		return error;
-
-	/*
-	 * if (tfa_dev_mtp_get(tfa, TFA_MTP_OTC) != 0) {
-	 *  pr_debug("%s: skip writing calibration data to MTP\n",
-	 *  __func__);
-	 *  return error;
-	 * }
-	 */
-	/* store calibration data to MTP */
-	ret = tfa_dev_mtp_set(tfa, TFA_MTP_OTC, 1);
-	if (ret != tfa_error_ok)
-		pr_debug("%s: error in setting MTPOTC\n",
-			__func__);
-
-	while (++tries < TFA98XX_API_REWRTIE_MTP_NTRIES) {
-		msleep_interruptible(BUSLOAD_INTERVAL);
-
-		/* set RE25 in shadow regiser */
-		ret = tfa_dev_mtp_set(tfa,
-			TFA_MTP_RE25, tfa->mohm[cal_idx]);
-		if (ret != tfa_error_ok) {
-			pr_err("%s: writing calibration data failed to MTP, device %d err (%d)\n",
-				__func__, tfa->dev_idx, ret);
-			return TFA98XX_ERROR_RPC_CALIB_FAILED;
-		}
-
-		msleep_interruptible(BUSLOAD_INTERVAL);
-
-		readback = tfa_dev_mtp_get(tfa, TFA_MTP_RE25);
-		if (readback < 0) {
-			pr_err("%s: reading calibration data back failed from MTP, device %d readback (%d)\n",
-				__func__, tfa->dev_idx, readback);
-			return TFA98XX_ERROR_RPC_CALIB_FAILED;
-		}
-		pr_info("%s: readback from MTP - %d mOhms\n",
-			__func__, readback);
-		error = tfa_calibration_range_check(tfa,
-			channel, readback);
-		if (error != TFA98XX_ERROR_OK) {
-			pr_err("%s: calibration data is out of range: device %d (to rewrite)\n",
+	ret = tfa_dev_mtp_set(tfa, TFA_MTP_RE25, tfa->mohm[cal_idx]);
+	if (ret != tfa_error_ok) {
+		if (ret == tfa_error_bad_param) {
+			pr_err("%s: calibration data is out of range: device %d\n",
 				__func__, tfa->dev_idx);
-			continue;
+			tfa->spkr_damaged = 1;
 		}
-
-		if (readback != tfa->mohm[cal_idx]) {
-			pr_err("%s: calibration data was not written to MTP, device %d (%d != %d)\n",
-				__func__, tfa->dev_idx,
-				tfa->mohm[cal_idx], readback);
-			continue;
-		}
-
-		break;
-	}
-
-	if (tries >= TFA98XX_API_REWRTIE_MTP_NTRIES) {
-		pr_err("%s: writing calibration data timed out, device %d\n",
-			__func__, tfa->dev_idx);
+		pr_err("%s: writing calibration data failed to MTP, device %d\n",
+				__func__, tfa->dev_idx);
 		return TFA98XX_ERROR_BAD_PARAMETER;
 	}
-
-	/* set MTPEX */
-	tries = 0;
-	while (++tries < TFA98XX_API_REWRTIE_MTP_NTRIES) {
-		msleep_interruptible(BUSLOAD_INTERVAL);
-
-		ret = tfa_dev_mtp_set(tfa, TFA_MTP_EX, 1);
-		if (ret != tfa_error_ok) {
-			pr_err("%s: setting MPTEX failed, device %d err (%d)\n",
-				__func__, tfa->dev_idx, ret);
-			continue;
-		}
-
-		msleep_interruptible(BUSLOAD_INTERVAL);
-
-		readback = tfa_dev_mtp_get(tfa, TFA_MTP_EX);
-		if (readback < 0) {
-			pr_err("%s: reading MTPEX back failed from MTP, device %d readback (%d)\n",
-				__func__, tfa->dev_idx, readback);
-			return TFA98XX_ERROR_RPC_CALIB_FAILED;
-		}
-
-		if (readback != 1) {
-			pr_err("%s: setting MTPEX failed, device %d (readback %d)\n",
-				__func__, tfa->dev_idx, readback);
-			continue;
-		}
-
-		break;
-	}
-
-	if (tries >= TFA98XX_API_REWRTIE_MTP_NTRIES) {
-		pr_err("%s: setting MTPEX timed out, device %d\n",
-			__func__, tfa->dev_idx);
-		return TFA98XX_ERROR_BAD_PARAMETER;
-	}
+	tfa_dev_mtp_set(tfa, TFA_MTP_EX, 1);
 
 	return error;
 }
@@ -4397,6 +4363,7 @@ enum tfa_error tfa_dev_set_state(struct tfa_device *tfa,
 	enum tfa98xx_error ret = TFA98XX_ERROR_OK;
 	int loop = 50, ready = 0;
 	int count;
+	int get_state;
 
 	if (tfa == NULL) {
 		pr_err("%s: tfa is NULL\n",	__func__);
@@ -4509,7 +4476,9 @@ enum tfa_error tfa_dev_set_state(struct tfa_device *tfa,
 	}
 
 	/* tfa->state = state; */ /* to correct with real state of device */
-	tfa_dev_get_state(tfa);
+	get_state = tfa_dev_get_state(tfa);
+	if (get_state != state)
+		pr_debug("%s: set_state %d, get_state %d\n", __func__, state, get_state);
 
 	return tfa_error_ok;
 }

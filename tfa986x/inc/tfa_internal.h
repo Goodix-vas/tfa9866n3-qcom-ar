@@ -32,11 +32,18 @@
 #define DUMMY_CALIBRATION_DATA 6000
 
 #define DEFAULT_REF_TEMP 25
+#define MAX_REF_TEMP 100
 #define TFA_NOT_FOUND -1
 
 enum instream_state {
 	BIT_PSTREAM = 1, /* b0 */
 	BIT_CSTREAM = 2, /* b1 */
+};
+
+enum cal_channel {
+	ALL_CH = 1,
+	RCV_CH = 2,
+	SPK_CH = 3,
 };
 
 /* tfa98xx: tfa_device_ops */
@@ -58,6 +65,7 @@ int tfa98xx_get_fssel(unsigned int rate);
 
 struct tfa_device *tfa98xx_get_tfa_device_from_index(int index);
 struct tfa_device *tfa98xx_get_tfa_device_from_channel(int channel);
+void tfa98xx_reinit(void);
 
 int tfa_get_channel_from_dev_idx(struct tfa_device *tfa, int dev_idx);
 int tfa_get_dev_idx_from_inchannel(int inchannel);
@@ -72,6 +80,7 @@ int tfa_get_ipc_loaded(void);
 void tfa_set_active_handle(struct tfa_device *tfa, int profile);
 void tfa_reset_active_handle(struct tfa_device *tfa);
 int tfa_is_active_device(struct tfa_device *tfa);
+char* tfa_get_ic_name (struct tfa_device *tfa);
 
 void tfa_handle_damaged_speakers(struct tfa_device *tfa);
 
