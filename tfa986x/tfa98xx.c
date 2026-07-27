@@ -29,6 +29,7 @@
 #include "inc/tfa98xx.h"
 #include "inc/tfa.h"
 #include "inc/tfa_internal.h"
+#include <asoc/sec_audio_debug.h>
 
 #include "inc/tfa98xx_tfafieldnames.h"
 
@@ -3989,6 +3990,7 @@ static void tfa98xx_dsp_init(struct tfa98xx *tfa98xx)
 				&tfa98xx->monitor_work,
 				1 * HZ);
 			mutex_unlock(&tfa98xx->dsp_lock);
+			sec_audio_debug_get_amp_status(ntfa->dev_idx);
 		}
 
 		failed = false;
@@ -4429,6 +4431,7 @@ static int _tfa98xx_stop(struct tfa98xx *tfa98xx)
 	tfa98xx->dsp_init = TFA98XX_DSP_INIT_STOPPED;
 	tfa98xx_set_dsp_configured(tfa98xx);
 	mutex_unlock(&tfa98xx->dsp_lock);
+	sec_audio_debug_get_amp_status(tfa98xx->tfa->dev_idx);
 
 	return 0;
 }
