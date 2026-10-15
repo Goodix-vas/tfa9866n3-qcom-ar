@@ -3373,6 +3373,21 @@ retry:
 		return TFA98XX_ERROR_FAIL;
 	}
 
+	if (subaddress == 0x54) { /* amp_pst_bbm, bst_pst_bbm */
+		unsigned int readback_value = 0;
+		while(1) {
+			ret = regmap_read(tfa98xx->regmap, subaddress, &readback_value);
+			if (!ret && (unsigned int)value == readback_value)
+				break;
+			pr_warn("i2c 0x54 read err %d, write 0x%x, readback_value 0x%x\n",
+				ret, value, readback_value);
+			ret = regmap_write(tfa98xx->regmap, subaddress, value);
+			if (ret < 0)
+				pr_warn("retry i2c write failed %d\n", ret);
+			msleep(I2C_RETRY_DELAY);
+		}
+	}
+
 	if (tfa98xx_kmsg_regs)
 		dev_dbg(tfa98xx->dev,
 			"WR reg=0x%02x, val=0x%04x %s\n",
