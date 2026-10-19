@@ -3385,6 +3385,8 @@ retry:
 			ret = regmap_write(tfa98xx->regmap, subaddress, value);
 			if (ret < 0)
 				pr_warn("retry i2c write failed %d\n", ret);
+			if (tfa_i2c_err_callback != NULL)
+				tfa_i2c_err_callback((int)tfa98xx->i2c->addr, -EINVAL, 1, i+1);
 			msleep(I2C_RETRY_DELAY);
 		}
 		if (i == I2C_RETRIES)
