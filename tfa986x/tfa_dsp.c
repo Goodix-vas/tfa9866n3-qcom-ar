@@ -301,9 +301,6 @@ int tfa_irq_report(struct tfa_device *tfa)
 			if (tfa0 && irq == tfa9866_irq_stocpr) {
 				group = tfa->dev_idx * ID_BLACKBOX_MAX;
 				tfa0->log_data[group + ID_OCP_COUNT]++;
-#if defined(CONFIG_SEC_FACTORY)
-				panic("OCP interrupt --> force kernel panic for test purpose\n");
-#endif
 			}
 		}
 
